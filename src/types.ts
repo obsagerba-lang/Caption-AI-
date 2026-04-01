@@ -9,7 +9,14 @@ export type Tone =
   | 'emotional' 
   | 'professional' 
   | 'luxury' 
-  | 'travel';
+  | 'travel'
+  | 'viral'
+  | 'casual'
+  | 'minimalist'
+  | 'witty'
+  | 'inspiring'
+  | 'informative'
+  | 'short';
 
 export type Language = 
   | 'English' 
@@ -44,6 +51,9 @@ export interface CaptionRequest {
   count: number;
   linesPerCaption: number;
   emojiIntensity: number; // 0: None, 1: Low, 2: Medium, 3: Abundant
+  hashtagCount: number;
+  hashtagType: 'popular' | 'niche' | 'branded';
+  hashtagLength: 'short' | 'medium' | 'long';
 }
 
 export interface CaptionItem {
@@ -84,5 +94,8 @@ export interface Draft {
   count: number;
   linesPerCaption: number;
   emojiIntensity: number;
+  hashtagCount: number;
+  hashtagType: 'popular' | 'niche' | 'branded';
+  hashtagLength: 'short' | 'medium' | 'long';
   createdAt: number;
 }

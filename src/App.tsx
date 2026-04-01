@@ -28,7 +28,8 @@ import {
   Settings,
   AlertCircle,
   Save,
-  Globe
+  Globe,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -44,11 +45,12 @@ import {
 } from './types';
 import { generateCaptions, detectLanguage } from './services/gemini';
 import { UI_TRANSLATIONS } from './translations';
+import { CaptionSkeleton } from './components/Skeleton';
 import { db, auth } from './firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
 
-const TONES: Tone[] = ['funny', 'romantic', 'savage', 'motivational', 'aesthetic', 'emotional', 'professional', 'luxury', 'travel'];
+const TONES: Tone[] = ['viral', 'casual', 'minimalist', 'witty', 'inspiring', 'informative', 'short', 'emotional', 'funny', 'luxury', 'aesthetic', 'romantic', 'savage', 'motivational', 'professional', 'travel'];
 const LANGUAGES: Language[] = ['English', 'French', 'Spanish', 'Portuguese', 'Swahili', 'Arabic', 'Hindi', 'German', 'Amharic', 'Afaan Oromo', 'Portuguese (Brazil)'];
 const PLATFORMS: Platform[] = ['Instagram', 'TikTok', 'Facebook', 'WhatsApp Status', 'Snapchat', 'LinkedIn', 'Pinterest', 'Twitter/X'];
 
@@ -200,6 +202,20 @@ const Logo = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const LANGUAGE_MAP: Record<Language, string> = {
+  'English': 'en-US',
+  'French': 'fr-FR',
+  'Spanish': 'es-ES',
+  'Portuguese': 'pt-PT',
+  'Swahili': 'sw-KE',
+  'Arabic': 'ar-SA',
+  'Hindi': 'hi-IN',
+  'German': 'de-DE',
+  'Amharic': 'am-ET',
+  'Afaan Oromo': 'om-ET',
+  'Portuguese (Brazil)': 'pt-BR'
+};
+
 export default function App() {
   const [image, setImage] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string | null>(null);
@@ -211,6 +227,10 @@ export default function App() {
   const [captionCount, setCaptionCount] = useState(5);
   const [linesPerCaption, setLinesPerCaption] = useState(2);
   const [emojiIntensity, setEmojiIntensity] = useState(1); // 0: None, 1: Low, 2: Medium, 3: Abundant
+  const [isHashtagSettingsExpanded, setIsHashtagSettingsExpanded] = useState(false);
+  const [hashtagCount, setHashtagCount] = useState(10);
+  const [hashtagType, setHashtagType] = useState<'popular' | 'niche' | 'branded'>('popular');
+  const [hashtagLength, setHashtagLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [captionFont, setCaptionFont] = useState<CaptionFont>('sans');
   
   const t = UI_TRANSLATIONS[uiLanguage] || UI_TRANSLATIONS['English'];
@@ -229,6 +249,7 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedText, setEditedText] = useState('');
   const [usageStats, setUsageStats] = useState({ totalGenerated: 0, totalCopied: 0, totalSaved: 0 });
@@ -362,11 +383,11 @@ export default function App() {
 
   const getStyleColors = () => {
     switch (appStyle) {
-      case 'neon': return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-[#0F1115]' };
-      case 'galaxy': return { primary: 'indigo-600', secondary: 'fuchsia-600', accent: 'indigo-400', bg: 'bg-[#0B0E14]' };
-      case 'pop': return { primary: 'pink-500', secondary: 'yellow-400', accent: 'pink-400', bg: 'bg-[#1A1A1A]' };
-      case 'glass': return { primary: 'blue-400', secondary: 'emerald-400', accent: 'blue-300', bg: 'bg-[#121212]' };
-      default: return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-[#0F1115]' };
+      case 'neon': return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]' };
+      case 'galaxy': return { primary: 'indigo-600', secondary: 'fuchsia-600', accent: 'indigo-400', bg: 'bg-gradient-to-br from-[#0B0E14] to-[#1E1B4B]' };
+      case 'pop': return { primary: 'pink-500', secondary: 'yellow-400', accent: 'pink-400', bg: 'bg-gradient-to-br from-[#1A1A1A] to-[#2D1B2E]' };
+      case 'glass': return { primary: 'blue-400', secondary: 'emerald-400', accent: 'blue-300', bg: 'bg-gradient-to-br from-[#121212] to-[#1B2631]' };
+      default: return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]' };
     }
   };
 
@@ -541,9 +562,13 @@ export default function App() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error accessing camera:", err);
-      toast.error("Could not access camera. Please check permissions.");
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error("Camera access denied. Please allow camera permissions in your browser settings.");
+      } else {
+        toast.error("Could not access camera: " + err.message);
+      }
     }
   };
 
@@ -590,6 +615,9 @@ export default function App() {
       count: captionCount,
       linesPerCaption: linesPerCaption,
       emojiIntensity: emojiIntensity,
+      hashtagCount: hashtagCount,
+      hashtagType: hashtagType,
+      hashtagLength: hashtagLength,
       createdAt: Date.now()
     };
 
@@ -616,6 +644,9 @@ export default function App() {
     setCaptionCount(draft.count);
     setLinesPerCaption(draft.linesPerCaption);
     setEmojiIntensity(draft.emojiIntensity);
+    setHashtagCount(draft.hashtagCount);
+    setHashtagType(draft.hashtagType);
+    setHashtagLength(draft.hashtagLength);
     setActiveTab('results');
     toast.success("Draft loaded! 📝");
     
@@ -637,6 +668,8 @@ export default function App() {
     }
   };
 
+
+
   const toggleRecording = () => {
     if (isRecording) {
       recognitionRef.current?.stop();
@@ -644,14 +677,24 @@ export default function App() {
     } else {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        alert("Your browser does not support voice input.");
+        toast.error("Your browser does not support voice input.");
         return;
       }
       const recognition = new SpeechRecognition();
+      recognition.lang = LANGUAGE_MAP[uiLanguage] || 'en-US';
       recognitionRef.current = recognition;
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setDescription(prev => prev + ' ' + transcript);
+      };
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        if (event.error === 'not-allowed') {
+          toast.error("Microphone access denied. Please allow microphone permissions in your browser settings.");
+        } else {
+          toast.error("Voice input error: " + event.error);
+        }
+        setIsRecording(false);
       };
       recognition.onend = () => setIsRecording(false);
       recognition.start();
@@ -687,6 +730,9 @@ export default function App() {
         count: isPremium ? captionCount : Math.min(captionCount, 5),
         linesPerCaption: linesPerCaption,
         emojiIntensity: emojiIntensity,
+        hashtagCount: hashtagCount,
+        hashtagType: hashtagType,
+        hashtagLength: hashtagLength,
       };
       
       const data = await generateCaptions(request, (partialResult) => {
@@ -730,6 +776,9 @@ export default function App() {
         count: captionCount,
         linesPerCaption: linesPerCaption,
         emojiIntensity: emojiIntensity,
+        hashtagCount: hashtagCount,
+        hashtagType: hashtagType,
+        hashtagLength: hashtagLength,
       };
       
       const data = await generateCaptions(request, (partialResult) => {
@@ -836,6 +885,9 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button className="md:hidden p-2 text-white" onClick={() => setShowMobileMenu(true)}>
+              <Menu className="w-6 h-6" />
+            </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t.engineBadge}</span>
@@ -899,7 +951,7 @@ export default function App() {
             </div>
 
             {/* User Profile & Premium */}
-            <div className="flex items-center gap-3 ml-2 pl-4 border-l border-white/10">
+            <div className="hidden md:flex items-center gap-3 ml-2 pl-4 border-l border-white/10">
               {user ? (
                 <div className="flex items-center gap-3">
                   <div className="relative group">
@@ -951,11 +1003,73 @@ export default function App() {
               )}
             </div>
 
-            <StyleSwitcher />
+            <div className="hidden md:flex">
+              <StyleSwitcher />
+            </div>
           </div>
         </div>
       </header>
-
+      
+      <AnimatePresence>
+        {showMobileMenu && (
+          <>
+            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)} />
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              className="fixed inset-y-0 right-0 z-[70] w-64 bg-[#1A1D23] border-l border-white/10 p-6"
+            >
+              <button className="absolute top-4 right-4 text-white" onClick={() => setShowMobileMenu(false)}>
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex flex-col gap-6 mt-12">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Theme</span>
+                  <StyleSwitcher />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Account</span>
+                  {user ? (
+                    <div className="flex flex-col gap-3">
+                      <button 
+                        onClick={togglePremium}
+                        className={cn(
+                          "flex items-center justify-center gap-2 px-3 py-2 rounded-xl border transition-all text-xs font-black uppercase tracking-widest",
+                          isPremium 
+                            ? "bg-gradient-to-r from-yellow-400 to-orange-500 border-transparent text-black" 
+                            : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+                        )}
+                      >
+                        <Crown className={cn("w-4 h-4", isPremium ? "text-black" : "text-yellow-500")} />
+                        {isPremium ? "Premium Active" : "Upgrade to Premium"}
+                      </button>
+                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-white">{user.displayName}</span>
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">{isPremium ? 'Pro Member' : 'Free Plan'}</span>
+                        </div>
+                        <button onClick={handleLogout} className="text-red-400 p-2">
+                          <LogOut className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={handleSignIn}
+                      className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10"
+                    >
+                      <UserIcon className="w-4 h-4" />
+                      <span>Sign In</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      
       <main className="max-w-5xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-20 relative z-10">
         {/* Hero Section */}
         <section className="text-center mb-16">
@@ -1079,24 +1193,26 @@ export default function App() {
             </div>
 
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 {t.describePlaceholder}
+              </label>
+              <div className="relative">
+                <textarea 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t.describePlaceholder}
+                  className={cn("w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:ring-2 focus:border-transparent transition-all resize-none h-24", `focus:ring-${colors.primary}`)}
+                />
                 <button
                   onClick={toggleRecording}
                   className={cn(
-                    "p-2 rounded-full transition-colors",
+                    "absolute bottom-3 right-3 p-2 rounded-full transition-colors",
                     isRecording ? "bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]" : "bg-white/10 text-gray-300 hover:bg-white/20"
                   )}
                 >
                   <Mic className="w-5 h-5" />
                 </button>
-              </label>
-              <textarea 
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t.describePlaceholder}
-                className={cn("w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:ring-2 focus:border-transparent transition-all resize-none h-24", `focus:ring-${colors.primary}`)}
-              />
+              </div>
             </div>
           </section>
 
@@ -1182,7 +1298,9 @@ export default function App() {
                   </span>
                 </div>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/10">
               <div>
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Hash className={cn("w-4 h-4", `text-${colors.primary}`)} />
@@ -1200,6 +1318,69 @@ export default function App() {
                   <span className="font-display font-bold text-lg w-8 text-white">{linesPerCaption}</span>
                 </div>
               </div>
+            </div>
+
+            {/* Hashtag Customization */}
+            <div className="space-y-6 pt-6 border-t border-white/10">
+              <button 
+                onClick={() => setIsHashtagSettingsExpanded(!isHashtagSettingsExpanded)}
+                className="w-full flex items-center justify-between text-sm font-black text-gray-400 uppercase tracking-widest"
+              >
+                <div className="flex items-center gap-2">
+                  <Hash className={cn("w-4 h-4", `text-${colors.primary}`)} />
+                  Hashtag Settings
+                </div>
+                {isHashtagSettingsExpanded ? <ChevronDown className="w-4 h-4 rotate-180" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              
+              {isHashtagSettingsExpanded && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Count</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="30" 
+                      value={hashtagCount}
+                      onChange={(e) => {
+                        setHashtagCount(parseInt(e.target.value));
+                        setIsHashtagSettingsExpanded(false);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Type</label>
+                    <select 
+                      value={hashtagType}
+                      onChange={(e) => {
+                        setHashtagType(e.target.value as any);
+                        setIsHashtagSettingsExpanded(false);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="popular">Popular</option>
+                      <option value="niche">Niche</option>
+                      <option value="branded">Branded</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Length</label>
+                    <select 
+                      value={hashtagLength}
+                      onChange={(e) => {
+                        setHashtagLength(e.target.value as any);
+                        setIsHashtagSettingsExpanded(false);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="short">Short</option>
+                      <option value="medium">Medium</option>
+                      <option value="long">Long</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1364,23 +1545,12 @@ export default function App() {
                   exit={{ opacity: 0 }}
                   className="space-y-6"
                 >
-                  <div className="bg-white/5 backdrop-blur-md rounded-3xl p-8 shadow-lg border border-white/10 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite] z-10" />
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="w-12 h-12 bg-cyan-500/20 rounded-2xl flex items-center justify-center animate-pulse">
-                        <Logo className="w-6 h-6 text-cyan-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-display font-bold text-white">Crafting your captions...</h3>
-                        <p className="text-sm text-gray-400">Our AI is analyzing your inputs</p>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="h-24 bg-white/5 rounded-2xl animate-pulse" />
-                      <div className="h-24 bg-white/5 rounded-2xl animate-pulse delay-75" />
-                      <div className="h-24 bg-white/5 rounded-2xl animate-pulse delay-150" />
-                    </div>
+                  <div className="text-center py-12">
+                     <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                     <h3 className="text-xl font-display font-bold text-white">Generating...</h3>
                   </div>
+                  <CaptionSkeleton />
+                  <CaptionSkeleton />
                 </motion.div>
               ) : (
                 <motion.div 

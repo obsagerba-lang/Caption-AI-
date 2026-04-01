@@ -142,6 +142,9 @@ async function executeGeneration(
       - Generate EXACTLY ${request.count} captions for ${request.platform}.
       - Tone: ${request.tone}
       - Emoji Intensity: ${request.emojiIntensity === 0 ? 'None' : request.emojiIntensity === 1 ? 'Low' : request.emojiIntensity === 2 ? 'Medium' : 'Abundant'}
+      - Hashtag Count: ${request.hashtagCount}
+      - Hashtag Type: ${request.hashtagType}
+      - Hashtag Length: ${request.hashtagLength}
       - Each caption should be ~${request.linesPerCaption} lines.
       - Write in FIRST PERSON ("I", "my").
       
