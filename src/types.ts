@@ -29,7 +29,10 @@ export type Platform =
   | 'TikTok' 
   | 'Facebook' 
   | 'WhatsApp Status' 
-  | 'Snapchat';
+  | 'Snapchat'
+  | 'LinkedIn'
+  | 'Pinterest'
+  | 'Twitter/X';
 
 export interface CaptionRequest {
   image?: string; // base64

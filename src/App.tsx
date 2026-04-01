@@ -21,9 +21,17 @@ import {
   LogOut,
   Crown,
   User as UserIcon,
-  Sparkles
+  Sparkles,
+  Edit2,
+  CopyPlus,
+  BarChart2,
+  Settings,
+  AlertCircle,
+  Save,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Toaster, toast } from 'sonner';
 import { cn } from './lib/utils';
 import { 
   Tone, 
@@ -41,7 +49,75 @@ import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebas
 
 const TONES: Tone[] = ['funny', 'romantic', 'savage', 'motivational', 'aesthetic', 'emotional', 'professional', 'luxury', 'travel'];
 const LANGUAGES: Language[] = ['English', 'French', 'Spanish', 'Portuguese', 'Swahili', 'Arabic', 'Hindi', 'German', 'Amharic', 'Afaan Oromo', 'Portuguese (Brazil)'];
-const PLATFORMS: Platform[] = ['Instagram', 'TikTok', 'Facebook', 'WhatsApp Status', 'Snapchat'];
+const PLATFORMS: Platform[] = ['Instagram', 'TikTok', 'Facebook', 'WhatsApp Status', 'Snapchat', 'LinkedIn', 'Pinterest', 'Twitter/X'];
+
+// --- Error Handling & Robustness ---
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: any;
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  toast.error(`Database error: ${errInfo.error}`);
+  throw new Error(JSON.stringify(errInfo));
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0F1115] flex flex-col items-center justify-center p-6 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h1 className="text-2xl font-black text-white mb-2">Something went wrong</h1>
+          <p className="text-gray-400 mb-6 max-w-md">The application crashed. We've been notified and are working on a fix.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-all"
+          >
+            Reload Application
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type CaptionFont = 'sans' | 'serif' | 'mono' | 'cursive' | 'impact';
 
@@ -72,54 +148,52 @@ const LANGUAGE_FLAGS: Record<Language, string> = {
 const Logo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <defs>
-      <linearGradient id="globeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stopColor="#00F0FF" />
-        <stop offset="100%" stopColor="#0077FF" />
+        <stop offset="50%" stopColor="#7000FF" />
+        <stop offset="100%" stopColor="#FF00D6" />
       </linearGradient>
-      <linearGradient id="cGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#003366" />
-        <stop offset="100%" stopColor="#001133" />
-      </linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
     </defs>
     
-    {/* Stylized 'C' wrapping the globe */}
-    <path 
-      d="M75 25C65 15 50 10 35 10C15 10 5 30 5 50C5 70 15 90 35 90C50 90 65 85 75 75" 
-      stroke="#001133" 
-      strokeWidth="10" 
-      strokeLinecap="round" 
-    />
-    <path 
-      d="M75 25C65 15 50 10 35 10C15 10 5 30 5 50C5 70 15 90 35 90C50 90 65 85 75 75" 
-      stroke="#0077FF" 
-      strokeWidth="4" 
-      strokeLinecap="round"
-      strokeDasharray="1 15"
-      opacity="0.5"
-    />
-
-    {/* Globe */}
-    <circle cx="45" cy="50" r="25" fill="url(#globeGradient)" />
-    <circle cx="45" cy="50" r="25" stroke="#001133" strokeWidth="2" />
+    {/* Outer Ring */}
+    <circle cx="50" cy="50" r="45" stroke="url(#logoGradient)" strokeWidth="1" strokeDasharray="4 4" opacity="0.3" />
     
-    {/* Globe Grid Lines */}
-    <path d="M20 50H70" stroke="#001133" strokeWidth="1" opacity="0.5" />
-    <path d="M45 25V75" stroke="#001133" strokeWidth="1" opacity="0.5" />
-    <path d="M25 40C30 45 60 45 65 40" stroke="#001133" strokeWidth="1" opacity="0.3" fill="none" />
-    <path d="M25 60C30 55 60 55 65 60" stroke="#001133" strokeWidth="1" opacity="0.3" fill="none" />
-    <path d="M35 27C40 35 40 65 35 73" stroke="#001133" strokeWidth="1" opacity="0.3" fill="none" />
-    <path d="M55 27C50 35 50 65 55 73" stroke="#001133" strokeWidth="1" opacity="0.3" fill="none" />
-
-    {/* Sparkle */}
+    {/* Main Shape: Stylized 'C' + Sparkle */}
     <path 
-      d="M85 75L88 83L96 86L88 89L85 97L82 89L74 86L82 83L85 75Z" 
-      fill="#00F0FF"
+      d="M70 30C65 20 55 15 45 15C25 15 10 30 10 50C10 70 25 85 45 85C55 85 65 80 70 70" 
+      stroke="url(#logoGradient)" 
+      strokeWidth="8" 
+      strokeLinecap="round" 
+      filter="url(#glow)"
+    />
+    
+    {/* Inner Globe / Core */}
+    <circle cx="50" cy="50" r="18" fill="url(#logoGradient)" opacity="0.8" />
+    <path d="M32 50H68" stroke="white" strokeWidth="0.5" opacity="0.5" />
+    <path d="M50 32V68" stroke="white" strokeWidth="0.5" opacity="0.5" />
+    
+    {/* Dynamic Sparkle */}
+    <path 
+      d="M80 40L83 48L91 51L83 54L80 62L77 54L69 51L77 48L80 40Z" 
+      fill="white"
     >
       <animate 
         attributeName="opacity" 
-        values="0.6;1;0.6" 
-        dur="2s" 
+        values="0.4;1;0.4" 
+        dur="1.5s" 
         repeatCount="indefinite" 
+      />
+      <animateTransform
+        attributeName="transform"
+        type="rotate"
+        from="0 80 51"
+        to="360 80 51"
+        dur="10s"
+        repeatCount="indefinite"
       />
     </path>
   </svg>
@@ -148,24 +222,108 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FavoriteCaption[]>([]);
-  const [activeTab, setActiveTab] = useState<'results' | 'favorites'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'favorites' | 'stats'>('results');
   const [user, setUser] = useState<any>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editedText, setEditedText] = useState('');
+  const [usageStats, setUsageStats] = useState({ totalGenerated: 0, totalCopied: 0, totalSaved: 0 });
+  const [history, setHistory] = useState<GeneratedCaptions[]>([]);
+
+  // Load history and stats from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('caption_history');
+    const savedStats = localStorage.getItem('usage_stats');
+    if (savedHistory) setHistory(JSON.parse(savedHistory));
+    if (savedStats) setUsageStats(JSON.parse(savedStats));
+  }, []);
+
+  // Persist history and stats
+  useEffect(() => {
+    localStorage.setItem('caption_history', JSON.stringify(history.slice(0, 50))); // Keep last 50
+    localStorage.setItem('usage_stats', JSON.stringify(usageStats));
+  }, [history, usageStats]);
+
+  // Sync with Firestore if logged in
+  useEffect(() => {
+    if (!user) return;
+    const statsRef = doc(db, 'users', user.uid, 'data', 'stats');
+    const unsubscribe = onSnapshot(statsRef, (doc) => {
+      if (doc.exists()) {
+        setUsageStats(doc.data() as any);
+      }
+    }, (err) => handleFirestoreError(err, OperationType.GET, `users/${user.uid}/data/stats`));
+    return () => unsubscribe();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
       await auth.signOut();
       setUser(null);
       setIsPremium(false);
+      toast.success("Logged out successfully");
     } catch (err) {
       console.error("Logout error:", err);
+      toast.error("Failed to logout");
     }
   };
 
   const togglePremium = () => {
     setIsPremium(!isPremium);
+    toast.success(isPremium ? "Switched to Free Plan" : "Premium Activated! Enjoy all features.");
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setUsageStats(prev => ({ ...prev, totalCopied: prev.totalCopied + 1 }));
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleShare = async (text: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'CaptionAI',
+          text: text,
+          url: window.location.href,
+        });
+        toast.success("Shared successfully!");
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Share error:', err);
+          toast.error("Failed to share");
+        }
+      }
+    } else {
+      copyToClipboard(text, 'share');
+    }
+  };
+
+  const startEditing = (id: string, text: string) => {
+    setEditingId(id);
+    setEditedText(text);
+  };
+
+  const saveEdit = (lang: string, idx: number) => {
+    if (!result) return;
+    const newResult = { ...result };
+    if (newResult.captions[lang]) {
+      newResult.captions[lang][idx] = editedText;
+      setResult(newResult);
+      setEditingId(null);
+      toast.success("Caption updated!");
+    }
+  };
+
+  const copyAllByLanguage = (lang: string) => {
+    if (!result || !result.captions[lang]) return;
+    const allText = result.captions[lang].join('\n\n');
+    navigator.clipboard.writeText(allText);
+    toast.success(`All ${lang} captions copied!`);
   };
 
   const getStyleColors = () => {
@@ -236,6 +394,9 @@ export default function App() {
         favs.push(doc.data() as FavoriteCaption);
       });
       setFavorites(favs);
+      setUsageStats(prev => ({ ...prev, totalSaved: favs.length }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/favorites`);
     });
     return () => unsubscribe();
   }, [user]);
@@ -273,18 +434,26 @@ export default function App() {
 
   const toggleFavorite = async (id: string, text: string, language: Language) => {
     if (!user) {
+      toast.info("Please sign in to save favorites");
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       return;
     }
 
+    const path = `users/${user.uid}/favorites/${id}`;
     const favRef = doc(db, 'users', user.uid, 'favorites', id);
     const exists = favorites.find(f => f.id === id);
 
-    if (exists) {
-      await deleteDoc(favRef);
-    } else {
-      await setDoc(favRef, { id, text, language, userId: user.uid });
+    try {
+      if (exists) {
+        await deleteDoc(favRef);
+        toast.success("Removed from favorites");
+      } else {
+        await setDoc(favRef, { id, text, language, userId: user.uid });
+        toast.success("Saved to favorites!");
+      }
+    } catch (error) {
+      handleFirestoreError(error, exists ? OperationType.DELETE : OperationType.WRITE, path);
     }
   };
 
@@ -341,7 +510,13 @@ export default function App() {
   const handleGenerate = async () => {
     if (!image && !description) {
       setError('Please provide an image, video, or a description.');
+      toast.error("Input required: Please upload an image or write a description.");
       return;
+    }
+
+    if (!isPremium && captionCount > 5) {
+      toast.info("Free plan is limited to 5 captions. Upgrade to Premium for up to 10!");
+      setCaptionCount(5);
     }
 
     setIsGenerating(true);
@@ -357,7 +532,7 @@ export default function App() {
         tone: selectedTone,
         languages: selectedLanguages,
         platform: selectedPlatform,
-        count: captionCount,
+        count: isPremium ? captionCount : Math.min(captionCount, 5),
         linesPerCaption: linesPerCaption,
         emojiIntensity: emojiIntensity,
       };
@@ -367,8 +542,14 @@ export default function App() {
       });
       
       setResult(data);
+      setHistory(prev => [data, ...prev]);
+      setUsageStats(prev => ({ ...prev, totalGenerated: prev.totalGenerated + (isPremium ? captionCount : Math.min(captionCount, 5)) }));
+      toast.success("Captions generated successfully! ✨");
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      const errorMessage = err.message || 'Something went wrong during generation';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error("Generation error:", err);
     } finally {
       setIsGenerating(false);
     }
@@ -376,6 +557,12 @@ export default function App() {
 
   const handleGenerateMore = async () => {
     if (!image && !description) return;
+
+    if (!isPremium) {
+      toast.info("Multi-language generation is a Premium feature!");
+      togglePremium();
+      return;
+    }
 
     setIsGeneratingMore(true);
     setError(null);
@@ -396,7 +583,6 @@ export default function App() {
       const data = await generateCaptions(request, (partialResult) => {
         setResult(prev => {
           if (!prev) return partialResult as GeneratedCaptions;
-          // Merge partial result with previous result to avoid clearing UI
           return {
             ...prev,
             ...partialResult,
@@ -406,11 +592,13 @@ export default function App() {
             }
           } as GeneratedCaptions;
         });
-      }, true); // generateAllLanguages = true
+      }, true);
       
       setResult(prev => {
         if (!prev) return data;
-        return {
+        const newTotal = Object.values(data.captions || {}).reduce((acc, curr) => acc + (curr?.length || 0), 0);
+        setUsageStats(s => ({ ...s, totalGenerated: s.totalGenerated + newTotal }));
+        const newResult = {
           ...prev,
           ...data,
           captions: {
@@ -418,36 +606,45 @@ export default function App() {
             ...(data.captions || {})
           }
         };
+        setHistory(h => [newResult, ...h.filter(item => item !== prev)]);
+        return newResult;
       });
+      toast.success("Additional languages generated!");
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      const errorMessage = err.message || 'Failed to generate more languages';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsGeneratingMore(false);
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const stylizeText = (text: string, font: CaptionFont): string => {
+    if (font === 'sans') return text;
+    
+    const maps: Record<string, string> = {
+      serif: "𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗",
+      mono: "𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿",
+      cursive: "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫",
+      impact: "𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵"
+    };
+
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const map = maps[font];
+    if (!map) return text;
+
+    const mapArray = Array.from(map);
+    return Array.from(text).map(char => {
+      const idx = chars.indexOf(char);
+      if (idx === -1) return char;
+      return mapArray[idx];
+    }).join('');
   };
 
-  const handleShare = async (text: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Social Media Caption',
-          text: text,
-          url: window.location.href,
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Error sharing:', err);
-        }
-      }
-    } else {
-      copyToClipboard(text, 'share-fallback');
-    }
+  const copyStylized = (text: string, font: CaptionFont, id: string) => {
+    const stylized = stylizeText(text, font);
+    copyToClipboard(stylized, id);
+    toast.success(`Copied in ${font} style!`);
   };
 
   const toggleLanguage = (lang: Language) => {
@@ -461,7 +658,8 @@ export default function App() {
   const hasCaptions = result?.captions && Object.values(result.captions).some(caps => caps && caps.length > 0);
 
   return (
-    <div className={cn("min-h-screen pb-20 transition-colors duration-500 relative overflow-hidden", colors.bg, "text-white")}>
+    <ErrorBoundary>
+      <div className={cn("min-h-screen pb-20 transition-colors duration-500 relative overflow-hidden", colors.bg, "text-white")}>
       {/* Background Glows */}
       <div className={cn("absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none opacity-20", `bg-${colors.primary}`)} />
       <div className={cn("absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none opacity-20", `bg-${colors.secondary}`)} />
@@ -1020,71 +1218,129 @@ export default function App() {
                       <motion.div variants={itemVariants} key={lang} className="bg-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
                         {isGenerating && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite] z-0 pointer-events-none" />}
                         <div className="relative z-10">
-                          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                            <Languages className="w-4 h-4 text-pink-500" />
-                            {lang} {LANGUAGE_FLAGS[lang as Language]}
-                          </h3>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                              <Languages className="w-4 h-4 text-pink-500" />
+                              {lang} {LANGUAGE_FLAGS[lang as Language]}
+                            </h3>
+                            <button 
+                              onClick={() => copyAllByLanguage(lang)}
+                              className="text-[10px] font-black text-cyan-500 hover:text-cyan-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 transition-all"
+                            >
+                              <CopyPlus className="w-3.5 h-3.5" />
+                              Copy All
+                            </button>
+                          </div>
                           <div className="space-y-3">
                             {captions?.map((cap, idx) => {
                               const captionText = typeof cap === 'string' ? cap : cap?.text;
                               if (!captionText) return null;
                               const id = `${lang}-${idx}`;
                               const isFav = favorites.some(f => f.id === id);
+                              const isEditing = editingId === id;
+
                               return (
                                 <motion.div 
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   key={id}
-                                  className="group relative bg-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all"
+                                  className="group relative bg-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-transparent hover:border-gray-100"
                                 >
-                                  <p className={cn(
-                                    "text-black font-medium text-lg pr-16 leading-relaxed",
-                                    FONT_STYLES.find(f => f.id === captionFont)?.class
-                                  )}>{captionText}</p>
-                                  <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-                                    {/* Style Selector moved to individual caption */}
-                                    <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl mb-1 shadow-inner">
-                                      {FONT_STYLES.map(font => (
-                                        <button
-                                          key={font.id}
-                                          onClick={() => setCaptionFont(font.id)}
-                                          className={cn(
-                                            "w-7 h-7 flex items-center justify-center rounded-lg text-[10px] transition-all",
-                                            captionFont === font.id 
-                                              ? "bg-white text-black shadow-md scale-110 ring-1 ring-black/5" 
-                                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-200"
-                                          )}
-                                          title={font.name}
+                                  {isEditing ? (
+                                    <div className="space-y-3">
+                                      <textarea
+                                        value={editedText}
+                                        onChange={(e) => setEditedText(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-black font-medium text-lg outline-none focus:ring-2 focus:ring-cyan-500 min-h-[100px]"
+                                        autoFocus
+                                      />
+                                      <div className="flex justify-end gap-2">
+                                        <button 
+                                          onClick={() => setEditingId(null)}
+                                          className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100"
                                         >
-                                          <span className={font.class}>Aa</span>
+                                          Cancel
                                         </button>
-                                      ))}
+                                        <button 
+                                          onClick={() => saveEdit(lang, idx)}
+                                          className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 text-white hover:bg-cyan-600 flex items-center gap-2"
+                                        >
+                                          <Save className="w-3.5 h-3.5" />
+                                          Save Changes
+                                        </button>
+                                      </div>
                                     </div>
-                                    
-                                    <div className="flex items-center gap-1">
-                                      <button 
-                                        onClick={() => toggleFavorite(id, captionText, lang as Language)}
-                                        className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all bg-gray-100", isFav ? "text-red-500 hover:bg-gray-200" : "text-gray-400 hover:text-red-400 hover:bg-gray-200")}
-                                      >
-                                        <Heart className={cn("w-3.5 h-3.5", isFav && "fill-current")} />
-                                        <span>{isFav ? 'Saved' : 'Save'}</span>
-                                      </button>
-                                      <button 
-                                        onClick={() => copyToClipboard(captionText, id)}
-                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-gray-100 text-gray-400 hover:text-black hover:bg-gray-200 transition-colors"
-                                      >
-                                        {copiedId === id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                                        <span>{copiedId === id ? 'Copied' : 'Copy'}</span>
-                                      </button>
-                                    </div>
-                                    <button 
-                                      onClick={() => handleShare(captionText)}
-                                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-gray-100 text-gray-400 hover:text-black hover:bg-gray-200 transition-colors w-full justify-center"
-                                    >
-                                      <Share2 className="w-3.5 h-3.5" />
-                                      <span>Share</span>
-                                    </button>
-                                  </div>
+                                  ) : (
+                                    <>
+                                      <p className={cn(
+                                        "text-black font-medium text-lg pr-16 leading-relaxed mb-4",
+                                        FONT_STYLES.find(f => f.id === captionFont)?.class
+                                      )}>{captionText}</p>
+                                      
+                                      <div className="flex flex-col gap-4">
+                                        {/* Prominent Style Selector */}
+                                        <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100">
+                                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mr-2">Writing Style</span>
+                                          {FONT_STYLES.map(font => (
+                                            <button
+                                              key={font.id}
+                                              onClick={() => setCaptionFont(font.id)}
+                                              className={cn(
+                                                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                                                captionFont === font.id 
+                                                  ? "bg-white text-black shadow-sm ring-1 ring-black/5" 
+                                                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                              )}
+                                            >
+                                              <span className={cn("text-sm", font.class)}>Aa</span>
+                                              <span className="hidden sm:inline">{font.name}</span>
+                                            </button>
+                                          ))}
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-50">
+                                          <div className="flex items-center gap-2">
+                                            <button 
+                                              onClick={() => startEditing(id, captionText)}
+                                              className="p-2 rounded-xl text-gray-400 hover:text-cyan-500 hover:bg-cyan-50 transition-colors"
+                                              title="Edit Caption"
+                                            >
+                                              <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                              onClick={() => toggleFavorite(id, captionText, lang as Language)}
+                                              className={cn("flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all", isFav ? "text-red-500 bg-red-50" : "text-gray-400 bg-gray-50 hover:text-red-400 hover:bg-red-50")}
+                                            >
+                                              <Heart className={cn("w-4 h-4", isFav && "fill-current")} />
+                                              <span>{isFav ? 'Saved' : 'Save'}</span>
+                                            </button>
+                                          </div>
+
+                                          <div className="flex items-center gap-2">
+                                            <button 
+                                              onClick={() => handleShare(captionText)}
+                                              className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-black hover:bg-gray-100 transition-colors"
+                                              title="Share"
+                                            >
+                                              <Share2 className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                              onClick={() => copyStylized(captionText, captionFont, id)}
+                                              className={cn(
+                                                "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                                captionFont !== 'sans' 
+                                                  ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" 
+                                                  : "bg-black text-white"
+                                              )}
+                                            >
+                                              {copiedId === id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                              <span>{copiedId === id ? 'Copied' : captionFont !== 'sans' ? 'Copy Styled' : 'Copy Text'}</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
                                 </motion.div>
                               );
                             })}
@@ -1180,7 +1436,7 @@ export default function App() {
                   )}
                 </motion.div>
               )
-            ) : (
+            ) : activeTab === 'favorites' ? (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1195,60 +1451,257 @@ export default function App() {
                     </p>
                   </div>
                 ) : (
-                  favorites.map((fav) => (
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-black text-white flex items-center gap-2">
+                        <Heart className="w-6 h-6 text-red-500" />
+                        Saved Captions
+                      </h2>
+                      <button 
+                        onClick={() => {
+                          const allText = favorites.map(f => `[${f.language}] ${f.text}`).join('\n\n---\n\n');
+                          navigator.clipboard.writeText(allText);
+                          toast.success("All favorites copied!");
+                        }}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2"
+                      >
+                        <CopyPlus className="w-4 h-4" />
+                        Copy All
+                      </button>
+                    </div>
+                    {favorites.map((fav) => (
                     <div key={fav.id} className="bg-white p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-4">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{fav.language} {LANGUAGE_FLAGS[fav.language as Language]}</span>
                         <div className="flex items-center gap-2">
-                          {/* Style Selector for Favorites */}
-                          <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl shadow-inner">
-                            {FONT_STYLES.map(font => (
-                              <button
-                                key={font.id}
-                                onClick={() => setCaptionFont(font.id)}
-                                className={cn(
-                                  "w-7 h-7 flex items-center justify-center rounded-lg text-[10px] transition-all",
-                                  captionFont === font.id 
-                                    ? "bg-white text-black shadow-md scale-110 ring-1 ring-black/5" 
-                                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-200"
-                                )}
-                                title={font.name}
-                              >
-                                <span className={font.class}>Aa</span>
-                              </button>
-                            ))}
-                          </div>
-                          
                           <button 
                             onClick={() => toggleFavorite(fav.id, fav.text, fav.language)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all bg-gray-100 text-red-500 hover:bg-gray-200"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all bg-red-50 text-red-500 hover:bg-red-100"
                           >
                             <Heart className="w-3.5 h-3.5 fill-current" />
                             <span>Saved</span>
                           </button>
                           <button 
-                            onClick={() => copyToClipboard(fav.text, fav.id)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-gray-100 text-gray-400 hover:text-black hover:bg-gray-200 transition-colors"
-                          >
-                            {copiedId === fav.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copiedId === fav.id ? 'Copied' : 'Copy'}</span>
-                          </button>
-                          <button 
                             onClick={() => handleShare(fav.text)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold bg-gray-100 text-gray-400 hover:text-black hover:bg-gray-200 transition-colors"
+                            className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-black hover:bg-gray-100 transition-colors"
                           >
                             <Share2 className="w-3.5 h-3.5" />
-                            <span>Share</span>
                           </button>
                         </div>
                       </div>
                       <p className={cn(
-                        "text-black font-medium text-lg leading-relaxed",
+                        "text-black font-medium text-lg leading-relaxed mb-4",
                         FONT_STYLES.find(f => f.id === captionFont)?.class
                       )}>{fav.text}</p>
+
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mr-2">Style</span>
+                          {FONT_STYLES.map(font => (
+                            <button
+                              key={font.id}
+                              onClick={() => setCaptionFont(font.id)}
+                              className={cn(
+                                "px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1.5",
+                                captionFont === font.id 
+                                  ? "bg-white text-black shadow-sm ring-1 ring-black/5" 
+                                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                              )}
+                            >
+                              <span className={cn("text-xs", font.class)}>Aa</span>
+                              <span className="hidden sm:inline">{font.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button 
+                          onClick={() => copyStylized(fav.text, captionFont, fav.id)}
+                          className={cn(
+                            "w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                            captionFont !== 'sans' 
+                              ? "bg-cyan-500 text-white shadow-lg" 
+                              : "bg-black text-white"
+                          )}
+                        >
+                          {copiedId === fav.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          <span>{copiedId === fav.id ? 'Copied' : captionFont !== 'sans' ? 'Copy Styled' : 'Copy Text'}</span>
+                        </button>
+                      </div>
                     </div>
-                  ))
-                )}
+                  ))}
+                </>
+              )}
+            </motion.div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-6"
+              >
+                <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-8">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", `bg-${colors.primary}/20`)}>
+                      <BarChart2 className={cn("w-6 h-6", `text-${colors.primary}`)} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white">Usage Dashboard</h2>
+                      <p className="text-sm text-gray-400">Track your AI creation journey</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Generated</span>
+                      <span className="text-3xl font-black text-white">{usageStats.totalGenerated}</span>
+                    </div>
+                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Copied</span>
+                      <span className="text-3xl font-black text-white">{usageStats.totalCopied}</span>
+                    </div>
+                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Saved</span>
+                      <span className="text-3xl font-black text-white">{usageStats.totalSaved}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 rounded-2xl p-6 border border-white/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-yellow-500" />
+                        <span className="text-sm font-bold text-white">Account Status</span>
+                      </div>
+                      <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", isPremium ? "bg-yellow-500 text-black" : "bg-white/10 text-gray-400")}>
+                        {isPremium ? 'Premium Pro' : 'Free Tier'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-6">
+                      {isPremium 
+                        ? "You have unlimited access to all AI models, languages, and styles. Thank you for supporting CaptionAI!" 
+                        : "Upgrade to Premium to unlock unlimited generations, all 10+ languages, and exclusive font styles."}
+                    </p>
+                    {!isPremium && (
+                      <button 
+                        onClick={togglePremium}
+                        className="w-full py-3 bg-white text-black rounded-xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+                      >
+                        Upgrade Now
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-8 pt-8 border-t border-white/5">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4" />
+                      Recent History
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      {history.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No recent history found.</p>
+                      ) : (
+                        history.slice(0, 5).map((item, idx) => (
+                          <div key={idx} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all cursor-pointer" onClick={() => { setResult(item); setActiveTab('results'); }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                                {Object.keys(item.captions).length} Languages
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {new Date().toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400 line-clamp-1">
+                              {(() => {
+                                const cap = Object.values(item.captions)[0]?.[0];
+                                return typeof cap === 'string' ? cap : cap?.text;
+                              })()}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-8 border-t border-white/5">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      App Settings
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div>
+                          <p className="text-sm font-bold text-white">Auto-detect Language</p>
+                          <p className="text-xs text-gray-500">Automatically add detected language to targets</p>
+                        </div>
+                        <div className="w-12 h-6 bg-cyan-500 rounded-full relative cursor-pointer">
+                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div>
+                          <p className="text-sm font-bold text-white">High Quality Analysis</p>
+                          <p className="text-xs text-gray-500">Use advanced vision models for better captions</p>
+                        </div>
+                        <div className={cn("w-12 h-6 rounded-full relative cursor-pointer transition-colors", isPremium ? "bg-cyan-500" : "bg-gray-700")}>
+                          <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all", isPremium ? "right-1" : "left-1")} />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div>
+                          <p className="text-sm font-bold text-white">Export History</p>
+                          <p className="text-xs text-gray-500">Download your generation history as CSV</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            if (history.length === 0) return toast.error("No history to export");
+                            const csvContent = "data:text/csv;charset=utf-8," 
+                              + "Date,Languages,Captions\n"
+                              + history.map(h => {
+                                  const date = new Date().toLocaleDateString();
+                                  const langs = Object.keys(h.captions).join('|');
+                                  const caps = Object.values(h.captions).flat().map(c => {
+                                    const text = typeof c === 'string' ? c : c?.text || '';
+                                    return text.replace(/"/g, '""');
+                                  }).join(' | ');
+                                  return `"${date}","${langs}","${caps}"`;
+                                }).join("\n");
+                            const encodedUri = encodeURI(csvContent);
+                            const link = document.createElement("a");
+                            link.setAttribute("href", encodedUri);
+                            link.setAttribute("download", "caption_history.csv");
+                            document.body.appendChild(link);
+                            link.click();
+                            toast.success("History exported!");
+                          }}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold text-white transition-all"
+                        >
+                          Export
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div>
+                          <p className="text-sm font-bold text-white">Clear All Data</p>
+                          <p className="text-xs text-gray-500">Remove all history and saved captions</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            if (confirm("Are you sure? This will delete all your history and saved captions locally.")) {
+                              setHistory([]);
+                              setFavorites([]);
+                              localStorage.removeItem('caption_history');
+                              toast.success("All data cleared!");
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl text-xs font-bold text-red-500 transition-all"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1261,5 +1714,6 @@ export default function App() {
         <p>© 2026 CaptionAI. Powered by O'S</p>
       </footer>
     </div>
+    </ErrorBoundary>
   );
 }
