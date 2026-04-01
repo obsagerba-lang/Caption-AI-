@@ -39,7 +39,8 @@ import {
   Platform, 
   CaptionRequest, 
   GeneratedCaptions,
-  FavoriteCaption
+  FavoriteCaption,
+  Draft
 } from './types';
 import { generateCaptions, detectLanguage } from './services/gemini';
 import { UI_TRANSLATIONS } from './translations';
@@ -222,7 +223,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FavoriteCaption[]>([]);
-  const [activeTab, setActiveTab] = useState<'results' | 'favorites' | 'stats'>('results');
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [activeTab, setActiveTab] = useState<'results' | 'favorites' | 'stats' | 'drafts'>('results');
   const [user, setUser] = useState<any>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
@@ -231,31 +233,63 @@ export default function App() {
   const [editedText, setEditedText] = useState('');
   const [usageStats, setUsageStats] = useState({ totalGenerated: 0, totalCopied: 0, totalSaved: 0 });
   const [history, setHistory] = useState<GeneratedCaptions[]>([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Load history and stats from localStorage
+  useEffect(() => {
+    if (isCameraActive && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [isCameraActive, cameraStream]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  // Load history, stats, and drafts from localStorage
   useEffect(() => {
     const savedHistory = localStorage.getItem('caption_history');
     const savedStats = localStorage.getItem('usage_stats');
+    const savedDrafts = localStorage.getItem('caption_drafts');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
     if (savedStats) setUsageStats(JSON.parse(savedStats));
+    if (savedDrafts) setDrafts(JSON.parse(savedDrafts));
   }, []);
 
-  // Persist history and stats
+  // Persist history, stats, and drafts
   useEffect(() => {
     localStorage.setItem('caption_history', JSON.stringify(history.slice(0, 50))); // Keep last 50
     localStorage.setItem('usage_stats', JSON.stringify(usageStats));
-  }, [history, usageStats]);
+    localStorage.setItem('caption_drafts', JSON.stringify(drafts));
+  }, [history, usageStats, drafts]);
 
   // Sync with Firestore if logged in
   useEffect(() => {
     if (!user) return;
     const statsRef = doc(db, 'users', user.uid, 'data', 'stats');
-    const unsubscribe = onSnapshot(statsRef, (doc) => {
+    const unsubscribeStats = onSnapshot(statsRef, (doc) => {
       if (doc.exists()) {
         setUsageStats(doc.data() as any);
       }
     }, (err) => handleFirestoreError(err, OperationType.GET, `users/${user.uid}/data/stats`));
-    return () => unsubscribe();
+
+    const draftsRef = collection(db, 'users', user.uid, 'drafts');
+    const unsubscribeDrafts = onSnapshot(draftsRef, (snapshot) => {
+      const d: Draft[] = [];
+      snapshot.forEach((doc) => d.push(doc.data() as Draft));
+      setDrafts(d);
+    }, (err) => handleFirestoreError(err, OperationType.GET, `users/${user.uid}/drafts`));
+
+    return () => {
+      unsubscribeStats();
+      unsubscribeDrafts();
+    };
   }, [user]);
 
   const handleLogout = async () => {
@@ -432,11 +466,25 @@ export default function App() {
     }
   }, [isGenerating]);
 
+  const handleSignIn = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast.success("Signed in successfully! ✨");
+    } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user') {
+        toast.info("Sign-in cancelled");
+      } else {
+        console.error("Sign-in error:", err);
+        toast.error("Failed to sign in. Please try again.");
+      }
+    }
+  };
+
   const toggleFavorite = async (id: string, text: string, language: Language) => {
     if (!user) {
       toast.info("Please sign in to save favorites");
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await handleSignIn();
       return;
     }
 
@@ -483,6 +531,110 @@ export default function App() {
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error("Could not access camera. Please check permissions.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setImage(dataUrl);
+        setMimeType('image/jpeg');
+        stopCamera();
+        toast.success("Photo captured!");
+      }
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!image && !description) {
+      toast.error("Nothing to save! Add an image or description first.");
+      return;
+    }
+
+    const newDraft: Draft = {
+      id: `draft_${Date.now()}`,
+      image: image || undefined,
+      mimeType: mimeType || undefined,
+      description,
+      tone: selectedTone,
+      languages: selectedLanguages,
+      platform: selectedPlatform,
+      count: captionCount,
+      linesPerCaption: linesPerCaption,
+      emojiIntensity: emojiIntensity,
+      createdAt: Date.now()
+    };
+
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'drafts', newDraft.id), newDraft);
+        toast.success("Draft saved to cloud! ☁️");
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/drafts/${newDraft.id}`);
+      }
+    } else {
+      setDrafts(prev => [newDraft, ...prev]);
+      toast.success("Draft saved locally! 💾");
+    }
+  };
+
+  const loadDraft = (draft: Draft) => {
+    setImage(draft.image || null);
+    setMimeType(draft.mimeType || null);
+    setDescription(draft.description);
+    setSelectedTone(draft.tone);
+    setSelectedLanguages(draft.languages);
+    setSelectedPlatform(draft.platform);
+    setCaptionCount(draft.count);
+    setLinesPerCaption(draft.linesPerCaption);
+    setEmojiIntensity(draft.emojiIntensity);
+    setActiveTab('results');
+    toast.success("Draft loaded! 📝");
+    
+    // Scroll to top to see loaded content
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const deleteDraft = async (id: string) => {
+    if (user) {
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'drafts', id));
+        toast.success("Draft deleted from cloud");
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `users/${user.uid}/drafts/${id}`);
+      }
+    } else {
+      setDrafts(prev => prev.filter(d => d.id !== id));
+      toast.success("Draft deleted");
+    }
   };
 
   const toggleRecording = () => {
@@ -686,7 +838,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Gemini AI Engine</span>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t.engineBadge}</span>
             </div>
             
             <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
@@ -790,7 +942,7 @@ export default function App() {
                 </div>
               ) : (
                 <button 
-                  onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
+                  onClick={handleSignIn}
                   className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 active:scale-95")}
                 >
                   <UserIcon className="w-4 h-4" />
@@ -841,21 +993,54 @@ export default function App() {
           <div className="lg:col-span-7 space-y-8">
             {/* Image Upload Section */}
             <section className="bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 shadow-xl">
-              <h2 className="text-lg font-display font-semibold mb-4 flex items-center gap-2 text-white">
-                <ImageIcon className={cn("w-5 h-5", `text-${colors.accent}`)} />
-                {t.uploadTitle}
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-display font-semibold flex items-center gap-2 text-white">
+                  <ImageIcon className={cn("w-5 h-5", `text-${colors.accent}`)} />
+                  {t.uploadTitle}
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => isCameraActive ? stopCamera() : startCamera()}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      isCameraActive 
+                        ? "bg-red-500/20 text-red-400 border border-red-500/30" 
+                        : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    {isCameraActive ? "Close Camera" : "Open Camera"}
+                  </button>
+                </div>
+              </div>
             
             <div 
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !isCameraActive && fileInputRef.current?.click()}
               onDrop={handleImageUpload}
               onDragOver={handleDragOver}
               className={cn(
                 "relative aspect-video rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center gap-3",
-                image ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
+                (image || isCameraActive) ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
               )}
             >
-              {image ? (
+              {isCameraActive ? (
+                <div className="relative w-full h-full">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); capturePhoto(); }}
+                      className={cn("w-14 h-14 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-110 active:scale-90", `bg-${colors.primary}`)}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-white/20 border border-white/40" />
+                    </button>
+                  </div>
+                </div>
+              ) : image ? (
                 <>
                   {mimeType?.startsWith('video/') ? (
                     <video src={image} controls autoPlay muted loop playsInline className="w-full h-full object-cover" />
@@ -890,6 +1075,7 @@ export default function App() {
                 className="hidden" 
                 accept="image/*,video/*"
               />
+              <canvas ref={canvasRef} className="hidden" />
             </div>
 
             <div className="mt-6">
@@ -1052,23 +1238,35 @@ export default function App() {
               )}
             </div>
 
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || (!image && !description)}
-              className={cn("w-full text-white py-4 rounded-2xl font-display font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl bg-gradient-to-r", `from-${colors.primary} to-${colors.secondary} hover:from-${colors.accent} hover:to-${colors.primary} shadow-${colors.secondary}/25`)}
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  {t.generatingBtn}
-                </>
-              ) : (
-                <>
-                  <Logo className="w-5 h-5" />
-                  {t.generateBtn}
-                </>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleSaveDraft}
+                className={cn(
+                  "flex-1 bg-white/5 border border-white/10 text-white py-4 rounded-2xl font-display font-bold text-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-all",
+                  `hover:border-${colors.primary}/50`
+                )}
+              >
+                <Save className="w-5 h-5" />
+                {t.saveDraft || "Save Draft"}
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || (!image && !description)}
+                className={cn("flex-[2] text-white py-4 rounded-2xl font-display font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl bg-gradient-to-r", `from-${colors.primary} to-${colors.secondary} hover:from-${colors.accent} hover:to-${colors.primary} shadow-${colors.secondary}/25`)}
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    {t.generatingBtn}
+                  </>
+                ) : (
+                  <>
+                    <Logo className="w-5 h-5" />
+                    {t.generateBtn}
+                  </>
+                )}
+              </button>
+            </div>
             {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
           </section>
         </div>
@@ -1076,11 +1274,11 @@ export default function App() {
         {/* Right Column: Results */}
         <div className="lg:col-span-5" ref={resultsRef}>
           <div className="flex items-center justify-between mb-6">
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               <button 
                 onClick={() => setActiveTab('results')}
                 className={cn(
-                  "px-4 py-2 rounded-full text-sm font-bold transition-all",
+                  "px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap",
                   activeTab === 'results' ? "bg-white text-black" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                 )}
               >
@@ -1089,12 +1287,22 @@ export default function App() {
               <button 
                 onClick={() => setActiveTab('favorites')}
                 className={cn(
-                  "px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2",
+                  "px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap",
                   activeTab === 'favorites' ? "bg-white text-black" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                 )}
               >
                 <Heart className="w-4 h-4" />
                 {t.favoritesTab} ({favorites.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('drafts')}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap",
+                  activeTab === 'drafts' ? "bg-white text-black" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                )}
+              >
+                <Save className="w-4 h-4" />
+                {t.draftsTab || "Drafts"} ({drafts.length})
               </button>
             </div>
             {hasCaptions && activeTab === 'results' && (
@@ -1205,9 +1413,12 @@ export default function App() {
                         <p className="text-gray-800 leading-relaxed italic font-medium">
                           "{result.image_understanding.description}"
                         </p>
-                        <p className="text-sm text-cyan-600 mt-2 font-bold">
-                          Mood: {result.image_understanding.mood}
-                        </p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Vibe:</span>
+                          <span className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-500 text-xs font-bold border border-cyan-500/20">
+                            {result.image_understanding.mood}
+                          </span>
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -1531,6 +1742,86 @@ export default function App() {
                 </>
               )}
             </motion.div>
+            ) : activeTab === 'drafts' ? (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-6"
+              >
+                {drafts.length === 0 ? (
+                  <div className="h-full min-h-[400px] bg-white/5 backdrop-blur-md rounded-3xl border border-dashed border-white/20 flex flex-col items-center justify-center p-8 text-center">
+                    <Save className="w-12 h-12 text-gray-500 mb-4" />
+                    <h3 className="text-lg font-display font-semibold text-gray-300">No drafts saved</h3>
+                    <p className="text-sm text-gray-400 max-w-[240px] mt-2">
+                      Save your current work as a draft to finish it later!
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-black text-white flex items-center gap-2">
+                        <Save className="w-6 h-6 text-cyan-500" />
+                        Saved Drafts
+                      </h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {drafts.map((draft) => (
+                        <div key={draft.id} className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all border border-transparent hover:border-cyan-500/20 group">
+                          {draft.image ? (
+                            <div className="aspect-video relative overflow-hidden bg-gray-100">
+                              <img src={draft.image} alt="Draft" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <button 
+                                  onClick={() => loadDraft(draft)}
+                                  className="px-4 py-2 bg-white text-black rounded-xl font-bold text-xs hover:bg-cyan-500 hover:text-white transition-all"
+                                >
+                                  Load Draft
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="aspect-video bg-gray-100 flex items-center justify-center p-6 text-center relative">
+                              <p className="text-xs text-gray-400 line-clamp-3 italic">"{draft.description}"</p>
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <button 
+                                  onClick={() => loadDraft(draft)}
+                                  className="px-4 py-2 bg-white text-black rounded-xl font-bold text-xs hover:bg-cyan-500 hover:text-white transition-all"
+                                >
+                                  Load Draft
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{draft.platform} • {draft.tone}</span>
+                              <span className="text-[10px] text-gray-400">{new Date(draft.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-sm text-gray-800 font-medium line-clamp-2 mb-4">
+                              {draft.description || "No description provided"}
+                            </p>
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                              <div className="flex gap-1">
+                                {draft.languages.slice(0, 3).map(lang => (
+                                  <span key={lang} className="text-xs" title={lang}>{LANGUAGE_FLAGS[lang]}</span>
+                                ))}
+                                {draft.languages.length > 3 && <span className="text-[10px] text-gray-400 font-bold">+{draft.languages.length - 3}</span>}
+                              </div>
+                              <button 
+                                onClick={() => deleteDraft(draft.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                title="Delete Draft"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </motion.div>
             ) : (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}

@@ -72,3 +72,17 @@ export interface GeneratedCaptions {
   };
   error?: string;
 }
+
+export interface Draft {
+  id: string;
+  image?: string;
+  mimeType?: string;
+  description: string;
+  tone: Tone;
+  languages: Language[];
+  platform: Platform;
+  count: number;
+  linesPerCaption: number;
+  emojiIntensity: number;
+  createdAt: number;
+}

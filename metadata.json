@@ -2,6 +2,7 @@
   "name": "CaptionAI",
   "description": "Advanced AI Social Media Caption Generator with multi-language support and image analysis.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }

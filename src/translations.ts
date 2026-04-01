@@ -35,7 +35,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Share",
     copy: "Copy",
     favorite: "Favorite",
-    engineBadge: "Gemini AI Engine",
+    engineBadge: "Magic AI Core",
     uiLanguage: "UI Language",
     targetLanguagesLabel: "Target Languages"
   },
@@ -73,7 +73,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Partager",
     copy: "Copier",
     favorite: "Favori",
-    engineBadge: "Moteur IA Gemini",
+    engineBadge: "Moteur Magic AI",
     uiLanguage: "Langue de l'interface"
   },
   "Spanish": {
@@ -110,7 +110,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Compartir",
     copy: "Copiar",
     favorite: "Favorito",
-    engineBadge: "Motor de IA Gemini",
+    engineBadge: "Motor Magic AI",
     uiLanguage: "Idioma de la interfaz"
   },
   "Portuguese": {
@@ -147,7 +147,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Compartilhar",
     copy: "Copiar",
     favorite: "Favorito",
-    engineBadge: "Motor de IA Gemini",
+    engineBadge: "Motor Magic AI",
     uiLanguage: "Idioma da UI"
   },
   "Swahili": {
@@ -184,7 +184,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Shiriki",
     copy: "Nakili",
     favorite: "Kipendwa",
-    engineBadge: "Injini ya AI ya Gemini",
+    engineBadge: "Injini ya Magic AI",
     uiLanguage: "Lugha ya UI"
   },
   "Arabic": {
@@ -221,7 +221,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "مشاركة",
     copy: "نسخ",
     favorite: "مفضلة",
-    engineBadge: "محرك الذكاء الاصطناعي Gemini",
+    engineBadge: "محرك Magic AI",
     uiLanguage: "لغة الواجهة"
   },
   "Hindi": {
@@ -258,7 +258,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "साझा करें",
     copy: "कॉपी करें",
     favorite: "पसंदीदा",
-    engineBadge: "Gemini AI इंजन",
+    engineBadge: "Magic AI इंजन",
     uiLanguage: "UI भाषा"
   },
   "German": {
@@ -295,7 +295,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Teilen",
     copy: "Kopieren",
     favorite: "Favorit",
-    engineBadge: "Gemini KI-Engine",
+    engineBadge: "Magic AI-Engine",
     uiLanguage: "UI-Sprache"
   },
   "Amharic": {
@@ -332,7 +332,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "አጋራ",
     copy: "ቅዳ",
     favorite: "ተወዳጅ",
-    engineBadge: "Gemini AI ሞተር",
+    engineBadge: "Magic AI ሞተር",
     uiLanguage: "የ UI ቋንቋ"
   },
   "Afaan Oromo": {
@@ -369,7 +369,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Qoodi",
     copy: "Waraabi",
     favorite: "Filatamaa",
-    engineBadge: "Injinii AI Gemini",
+    engineBadge: "Injinii Magic AI",
     uiLanguage: "Qooqa UI"
   },
   "Portuguese (Brazil)": {
@@ -406,7 +406,7 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     share: "Compartilhar",
     copy: "Copiar",
     favorite: "Favorito",
-    engineBadge: "Motor de IA Gemini",
+    engineBadge: "Motor Magic AI",
     uiLanguage: "Idioma da UI"
   }
 };

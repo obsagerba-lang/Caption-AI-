@@ -6,7 +6,7 @@ const MODEL_NAME = "gemini-3-flash-preview";
 const LANGUAGES: Language[] = ['English', 'French', 'Spanish', 'Portuguese', 'Swahili', 'Arabic', 'Hindi', 'German', 'Amharic', 'Afaan Oromo', 'Portuguese (Brazil)'];
 
 /**
- * Generates social media captions using Gemini.
+ * Generates social media captions using Magic AI.
  * Optimizes performance for multiple languages by parallelizing requests.
  */
 export async function generateCaptions(
@@ -84,7 +84,7 @@ export async function generateCaptions(
     
     return mergedResult;
   } catch (e: any) {
-    console.error("Gemini generation error:", e);
+    console.error("AI generation error:", e);
     if (e.message?.includes("safety")) {
       throw new Error("The request was declined due to safety filters. Please try a different image or description.");
     }
@@ -145,6 +145,15 @@ async function executeGeneration(
       - Each caption should be ~${request.linesPerCaption} lines.
       - Write in FIRST PERSON ("I", "my").
       
+      ✨ PERSONALIZATION & EMOTION:
+      - Do NOT just describe the photo. Share the FEELING and VIBE.
+      - If the photo shows laughter, make the caption burst with joy, humor, and the specific reason for the laugh.
+      - If the photo is sad or reflective, use deep, emotional, and poetic language that shares the weight of the moment.
+      - Connect with the audience by sharing the "why" behind the moment.
+      - Make it sound like a real person sharing a real memory, not an AI list.
+      - Use sensory language (what it felt like, the atmosphere, the unspoken words).
+      - Avoid generic "order style" or "fact-based" captions.
+      
       OUTPUT FORMAT:
       Return ONLY this JSON structure:
       {
@@ -155,7 +164,7 @@ async function executeGeneration(
         },
         "image_understanding": {
           "description": "Summary of media",
-          "mood": "Mood"
+          "mood": "Detailed emotional mood (e.g., 'Radiant Joy', 'Quiet Melancholy', 'Fierce Confidence')"
         },
         "hashtags": ["tag1", "tag2"]
       }
@@ -163,7 +172,8 @@ async function executeGeneration(
   }
 
   const contents: any[] = [];
-  if (request.image) {
+  // Only send image data if we are in INITIAL GENERATION MODE (no referenceResult)
+  if (request.image && !referenceResult) {
     let mimeType = request.mimeType || "image/jpeg";
     // Basic video mimeType normalization
     if (mimeType.startsWith('video/')) {
