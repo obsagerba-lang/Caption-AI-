@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - email: string (required) - User email
+    //   - displayName: string (optional) - User display name
+    //
+    // Collection: favorites
+    // Document ID: {captionId}
+    // Fields:
+    //   - id: string (required) - Unique ID
+    //   - text: string (required) - Caption text
+    //   - language: string (required) - Language
+    //   - userId: string (required) - Owner UID
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && hasRequiredFields(['uid', 'email']) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && request.resource.data.uid == userId;
+      allow delete: if isOwner(userId);
+
+      match /favorites/{captionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && hasRequiredFields(['id', 'text', 'language', 'userId']) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

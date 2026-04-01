@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "displayName": { "type": "string", "description": "User display name" }
+      },
+      "required": ["uid", "email"]
+    },
+    "FavoriteCaption": {
+      "title": "FavoriteCaption",
+      "description": "A saved caption",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "text": { "type": "string", "description": "Caption text" },
+        "language": { "type": "string", "description": "Language" },
+        "userId": { "type": "string", "description": "Owner UID" }
+      },
+      "required": ["id", "text", "language", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles"
+    },
+    "/users/{userId}/favorites/{captionId}": {
+      "schema": { "$ref": "FavoriteCaption" },
+      "description": "User's favorite captions"
+    }
+  }
+}
