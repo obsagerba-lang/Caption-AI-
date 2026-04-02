@@ -26,7 +26,7 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onUpgrade, onWatchAd,
           <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-violet-500 rounded-full mx-auto flex items-center justify-center">
             <Crown className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-black text-white">Upgrade to Pro 🚀</h2>
+          <h2 className="text-2xl font-black text-white">Go Pro 🚀</h2>
           <p className="text-gray-400">{reason}</p>
           
           <ul className="text-left text-sm text-gray-300 space-y-2 py-4">

@@ -720,7 +720,8 @@ export default function App() {
     }
 
     if (!isPremium && dailyCaptionsGenerated >= 5) {
-      toast.error("Daily limit reached! Upgrade to Premium or watch an ad.");
+      setPaywallReason("You reached today’s limit 😅 Watch ad or upgrade to continue");
+      setShowPaywall(true);
       return;
     }
 
@@ -751,8 +752,18 @@ export default function App() {
       };
       
       const data = await generateCaptions(request, (partialResult) => {
-        setResult(partialResult as GeneratedCaptions);
-      });
+        setResult(prev => {
+          if (!prev) return partialResult as GeneratedCaptions;
+          return {
+            ...prev,
+            ...partialResult,
+            captions: {
+              ...prev.captions,
+              ...((partialResult as GeneratedCaptions).captions || {})
+            }
+          } as GeneratedCaptions;
+        });
+      }, true);
       
       setResult(data);
       setHistory(prev => [data, ...prev]);
@@ -762,7 +773,8 @@ export default function App() {
         setDailyCaptionsGenerated(prev => prev + 1);
         setCaptionsSinceLastAd(prev => prev + 1);
         if (captionsSinceLastAd + 1 >= 2) {
-          toast.info("Showing interstitial ad...");
+          setPaywallReason("Watch ad → unlock more");
+          setShowPaywall(true);
           setCaptionsSinceLastAd(0);
         }
       }
@@ -1116,7 +1128,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             className={cn("text-5xl md:text-7xl font-display font-black bg-clip-text text-transparent bg-gradient-to-r mb-6 leading-tight tracking-tighter", `from-${colors.accent} via-${colors.secondary} to-${colors.primary}`)}
           >
-            {t.title}
+            Turn your photo into viral captions in seconds
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

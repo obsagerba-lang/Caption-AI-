@@ -21,9 +21,9 @@ export const DailyEngagement = () => {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       setItems([
-        { title: 'Trending Today', caption: 'Living my best life, one coffee at a time. ☕️ #trending #coffeelover', icon: <TrendingUp className="w-4 h-4 text-cyan-400" /> },
-        { title: 'Viral Vibe', caption: 'POV: You just found the secret to happiness. ✨ #viral #happiness', icon: <Sparkles className="w-4 h-4 text-violet-400" /> },
-        { title: 'TikTok Best', caption: 'Don’t mind me, just living in my own world. 🌎 #fyp #tiktok', icon: <Zap className="w-4 h-4 text-pink-400" /> },
+        { title: '🔥 Today’s Viral Captions', caption: 'Living my best life, one coffee at a time. ☕️ #trending #coffeelover', icon: <TrendingUp className="w-4 h-4 text-cyan-400" /> },
+        { title: '🔥 Today’s Viral Captions', caption: 'POV: You just found the secret to happiness. ✨ #viral #happiness', icon: <Sparkles className="w-4 h-4 text-violet-400" /> },
+        { title: '🔥 Today’s Viral Captions', caption: 'Don’t mind me, just living in my own world. 🌎 #fyp #tiktok', icon: <Zap className="w-4 h-4 text-pink-400" /> },
       ]);
       setLoading(false);
     };
