@@ -986,7 +986,19 @@ export default function App() {
                       <span className="text-[10px] font-bold text-white truncate max-w-[100px]">{user.displayName}</span>
                       <span className="text-[8px] font-black text-gray-500 uppercase tracking-tighter">{isPremium ? 'Pro Member' : 'Free Plan'}</span>
                     </div>
-                    <div className="w-9 h-9 rounded-full border-2 border-white/10 overflow-hidden bg-white/5 flex items-center justify-center group relative cursor-pointer">
+                    {user.email === 'odananegero@gmail.com' && (
+                      <button 
+                        onClick={() => {
+                          const element = document.getElementById('admin-dashboard');
+                          element?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500/20 transition-all ml-2"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Feedback
+                      </button>
+                    )}
+                    <div className="w-9 h-9 rounded-full border-2 border-white/10 overflow-hidden bg-white/5 flex items-center justify-center group relative cursor-pointer ml-3">
                       {user.photoURL ? (
                         <img src={user.photoURL} alt="User" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -1024,8 +1036,8 @@ export default function App() {
       
       <div className="max-w-5xl mx-auto">
         <DailyEngagement t={t} />
-        {user?.email === 'obsagerba@gmail.com' && (
-          <div className="mt-8 p-4">
+        {user?.email === 'odananegero@gmail.com' && (
+          <div id="admin-dashboard" className="mt-8 p-4">
             <AdminDashboard />
           </div>
         )}
