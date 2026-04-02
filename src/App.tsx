@@ -244,6 +244,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'results' | 'favorites' | 'stats' | 'drafts'>('results');
   const [user, setUser] = useState<any>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [dailyCaptionsGenerated, setDailyCaptionsGenerated] = useState(0);
+  const [captionsSinceLastAd, setCaptionsSinceLastAd] = useState(0);
+  const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -276,9 +279,13 @@ export default function App() {
     const savedHistory = localStorage.getItem('caption_history');
     const savedStats = localStorage.getItem('usage_stats');
     const savedDrafts = localStorage.getItem('caption_drafts');
+    const savedDailyUsage = localStorage.getItem('daily_usage');
+    const savedResetDate = localStorage.getItem('last_reset_date');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
     if (savedStats) setUsageStats(JSON.parse(savedStats));
     if (savedDrafts) setDrafts(JSON.parse(savedDrafts));
+    if (savedDailyUsage) setDailyCaptionsGenerated(parseInt(savedDailyUsage));
+    if (savedResetDate) setLastResetDate(savedResetDate);
   }, []);
 
   // Persist history, stats, and drafts
@@ -286,7 +293,18 @@ export default function App() {
     localStorage.setItem('caption_history', JSON.stringify(history.slice(0, 50))); // Keep last 50
     localStorage.setItem('usage_stats', JSON.stringify(usageStats));
     localStorage.setItem('caption_drafts', JSON.stringify(drafts));
-  }, [history, usageStats, drafts]);
+    localStorage.setItem('daily_usage', dailyCaptionsGenerated.toString());
+    localStorage.setItem('last_reset_date', lastResetDate);
+  }, [history, usageStats, drafts, dailyCaptionsGenerated, lastResetDate]);
+
+  // Reset daily usage if date has changed
+  useEffect(() => {
+    const today = new Date().toDateString();
+    if (lastResetDate !== today) {
+      setDailyCaptionsGenerated(0);
+      setLastResetDate(today);
+    }
+  }, [lastResetDate]);
 
   // Sync with Firestore if logged in
   useEffect(() => {
@@ -535,8 +553,19 @@ export default function App() {
     }
 
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError("File is too large (max 10MB). High-quality uploads >10MB are reserved for Premium & Subscription users.");
+      const MAX_FREE_IMAGE = 5 * 1024 * 1024;
+      const MAX_FREE_VIDEO = 10 * 1024 * 1024;
+      const MAX_PREMIUM_IMAGE = 20 * 1024 * 1024;
+      const MAX_PREMIUM_VIDEO = 100 * 1024 * 1024;
+
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo 
+        ? (isPremium ? MAX_PREMIUM_VIDEO : MAX_FREE_VIDEO)
+        : (isPremium ? MAX_PREMIUM_IMAGE : MAX_FREE_IMAGE);
+
+      if (file.size > maxSize) {
+        setError(`File is too large! (Max ${isPremium ? (isVideo ? '100MB' : '20MB') : (isVideo ? '10MB' : '5MB')}). Upgrade to Premium for larger uploads.`);
+        toast.error("File too large! Upgrade to Premium for larger uploads.");
         return;
       }
       setMimeType(file.type);
@@ -685,6 +714,11 @@ export default function App() {
       return;
     }
 
+    if (!isPremium && dailyCaptionsGenerated >= 5) {
+      toast.error("Daily limit reached! Upgrade to Premium or watch an ad.");
+      return;
+    }
+
     if (!isPremium && captionCount > 5) {
       toast.info("Free plan is limited to 5 captions. Upgrade to Premium for up to 10!");
       setCaptionCount(5);
@@ -718,6 +752,16 @@ export default function App() {
       setResult(data);
       setHistory(prev => [data, ...prev]);
       setUsageStats(prev => ({ ...prev, totalGenerated: prev.totalGenerated + (isPremium ? captionCount : Math.min(captionCount, 5)) }));
+      
+      if (!isPremium) {
+        setDailyCaptionsGenerated(prev => prev + 1);
+        setCaptionsSinceLastAd(prev => prev + 1);
+        if (captionsSinceLastAd + 1 >= 2) {
+          toast.info("Showing interstitial ad...");
+          setCaptionsSinceLastAd(0);
+        }
+      }
+      
       toast.success("Captions generated successfully! ✨");
     } catch (err: any) {
       const errorMessage = err.message || 'Something went wrong during generation';
