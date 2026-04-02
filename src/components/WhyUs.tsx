@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Sparkles, TrendingUp, Target, Camera } from 'lucide-react';
+import { Zap, Sparkles, TrendingUp, Target } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Feedback } from './Feedback';
@@ -22,7 +22,7 @@ export const WhyUs = ({ t }: { t: any }) => {
       description: t.whyUsFeature3Desc
     },
     {
-      icon: <Camera className="w-6 h-6 text-emerald-400" />,
+      icon: <Sparkles className="w-6 h-6 text-emerald-400" />,
       title: t.whyUsFeature4Title,
       description: t.whyUsFeature4Desc
     }

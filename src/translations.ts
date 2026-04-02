@@ -52,7 +52,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: You just found the secret to happiness. ✨ #viral #happiness",
     viralCaptionFB: "Don’t mind me, just living in my own world. 🌎 #fyp #tiktok",
     loadingTrends: "Loading daily trends...",
-    copiedToClipboard: "Copied to clipboard!"
+    copiedToClipboard: "Copied to clipboard!",
+    hashtags: "Hashtags",
+    generatingMore: "Generating More...",
+    showMoreLanguages: "Show More Languages",
   },
   "French": {
     title: "CaptionAI",
@@ -104,7 +107,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV : Vous venez de trouver le secret du bonheur. ✨ #viral #bonheur",
     viralCaptionFB: "Ne faites pas attention à moi, je vis juste dans mon propre monde. 🌎 #fyp #tiktok",
     loadingTrends: "Chargement des tendances quotidiennes...",
-    copiedToClipboard: "Copié dans le presse-papier !"
+    copiedToClipboard: "Copié dans le presse-papier !",
+    hashtags: "Hashtags",
+    generatingMore: "Génération de plus...",
+    showMoreLanguages: "Afficher plus de langues",
   },
   "Spanish": {
     title: "CaptionAI",
@@ -156,7 +162,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: Acabas de encontrar el secreto de la felicidad. ✨ #viral #felicidad",
     viralCaptionFB: "No me hagas caso, solo vivo en mi propio mundo. 🌎 #fyp #tiktok",
     loadingTrends: "Cargando tendencias diarias...",
-    copiedToClipboard: "¡Copiado al portapapeles!"
+    copiedToClipboard: "¡Copiado al portapapeles!",
+    hashtags: "Hashtags",
+    generatingMore: "Generando más...",
+    showMoreLanguages: "Mostrar más idiomas",
   },
   "Portuguese": {
     title: "CaptionAI",
@@ -208,7 +217,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: Você acabou de encontrar o segredo da felicidade. ✨ #viral #felicidade",
     viralCaptionFB: "Não ligue para mim, estou apenas vivendo no meu próprio mundo. 🌎 #fyp #tiktok",
     loadingTrends: "Carregando tendências diárias...",
-    copiedToClipboard: "Copiado para a área de transferência!"
+    copiedToClipboard: "Copiado para a área de transferência!",
+    hashtags: "Hashtags",
+    generatingMore: "Gerando mais...",
+    showMoreLanguages: "Mostrar mais idiomas",
   },
   "Swahili": {
     title: "CaptionAI",
@@ -260,7 +272,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: Umeipata siri ya furaha. ✨ #viral #furaha",
     viralCaptionFB: "Usinijali, ninaishi tu katika ulimwengu wangu. 🌎 #fyp #tiktok",
     loadingTrends: "Inapakia mitindo ya kila siku...",
-    copiedToClipboard: "Nakili kwenye ubao wa kunakili!"
+    copiedToClipboard: "Nakili kwenye ubao wa kunakili!",
+    hashtags: "Haashitaagota",
+    generatingMore: "Inatengeneza zaidi...",
+    showMoreLanguages: "Onyesha lugha zaidi",
   },
   "Arabic": {
     title: "CaptionAI",
@@ -312,7 +327,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: لقد وجدت للتو سر السعادة. ✨ #فيروسي #سعادة",
     viralCaptionFB: "لا تهتم بي، أنا فقط أعيش في عالمي الخاص. 🌎 #fyp #tiktok",
     loadingTrends: "جاري تحميل الاتجاهات اليومية...",
-    copiedToClipboard: "تم النسخ إلى الحافظة!"
+    copiedToClipboard: "تم النسخ إلى الحافظة!",
+    hashtags: "الهاشتاجات",
+    generatingMore: "جاري إنشاء المزيد...",
+    showMoreLanguages: "عرض المزيد من اللغات",
   },
   "Hindi": {
     title: "CaptionAI",
@@ -364,7 +382,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: आपने अभी खुशी का रहस्य खोज लिया है। ✨ #viral #happiness",
     viralCaptionFB: "मेरी चिंता मत करो, मैं बस अपनी दुनिया में जी रहा हूँ। 🌎 #fyp #tiktok",
     loadingTrends: "दैनिक ट्रेंड लोड हो रहे हैं...",
-    copiedToClipboard: "क्लिपबोर्ड पर कॉपी किया गया!"
+    copiedToClipboard: "क्लिपボード पर कॉपी किया गया!",
+    hashtags: "हैशटैग",
+    generatingMore: "और जेनरेट हो रहा है...",
+    showMoreLanguages: "और भाषाएं दिखाएं",
   },
   "German": {
     title: "CaptionAI",
@@ -416,7 +437,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: Du hast gerade das Geheimnis des Glücks gefunden. ✨ #viral #happiness",
     viralCaptionFB: "Kümmere dich nicht um mich, ich lebe nur in meiner eigenen Welt. 🌎 #fyp #tiktok",
     loadingTrends: "Tägliche Trends werden geladen...",
-    copiedToClipboard: "In die Zwischenablage kopiert!"
+    copiedToClipboard: "In die Zwischenablage kopiert!",
+    hashtags: "Hashtags",
+    generatingMore: "Mehr generieren...",
+    showMoreLanguages: "Mehr Sprachen anzeigen",
   },
   "Amharic": {
     title: "CaptionAI",
@@ -468,7 +492,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: የደስታን ሚስጥር አሁን አግኝተሃል። ✨ #viral #happiness",
     viralCaptionFB: "አትጨነቁልኝ፣ በራሴ ዓለም ውስጥ እየኖርኩ ነው። 🌎 #fyp #tiktok",
     loadingTrends: "ዕለታዊ አዝማሚያዎችን በመጫን ላይ...",
-    copiedToClipboard: "ወደ ቅንጥብ ሰሌዳ ተቀድቷል!"
+    copiedToClipboard: "ወደ ቅንጥብ ሰሌዳ ተቀድቷል!",
+    hashtags: "ሃሽታጎች",
+    generatingMore: "ተጨማሪ በመፍጠር ላይ...",
+    showMoreLanguages: "ተጨማሪ ቋንቋዎችን አሳይ",
   },
   "Afaan Oromo": {
     title: "CaptionAI",
@@ -520,7 +547,10 @@ export const UI_TRANSLATIONS: Record<Language, any> = {
     viralCaptionTikTok: "POV: Iccitii gammachuu argatteetta. ✨ #viral #happiness",
     viralCaptionFB: "Na hin dhibin, addunyaa koo keessa jiraachaa jira. 🌎 #fyp #tiktok",
     loadingTrends: "Trendii guyyaa guyyaan fe'aa jira...",
-    copiedToClipboard: "Waraabameera!"
+    copiedToClipboard: "Waraabameera!",
+    hashtags: "Haashitaagota",
+    generatingMore: "Dabalata uumaa jira...",
+    showMoreLanguages: "Qooqa dabalataa agarsiisi",
   },
   "Portuguese (Brazil)": {
     title: "CaptionAI",

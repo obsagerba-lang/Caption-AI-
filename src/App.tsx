@@ -5,7 +5,6 @@ import { Paywall } from './components/Paywall';
 import { Feedback } from './components/Feedback';
 import { AdminDashboard } from './components/AdminDashboard';
 import { 
-  Camera, 
   Upload, 
   Image as ImageIcon, 
   Copy, 
@@ -230,11 +229,10 @@ export default function App() {
   const [captionCount, setCaptionCount] = useState(5);
   const [linesPerCaption, setLinesPerCaption] = useState(2);
   const [emojiIntensity, setEmojiIntensity] = useState(1); // 0: None, 1: Low, 2: Medium, 3: Abundant
-  const [isHashtagSettingsExpanded, setIsHashtagSettingsExpanded] = useState(false);
   const [hashtagCount, setHashtagCount] = useState(10);
   const [hashtagType, setHashtagType] = useState<'popular' | 'niche' | 'branded'>('popular');
   const [hashtagLength, setHashtagLength] = useState<'short' | 'medium' | 'long'>('medium');
-  const [showHashtags, setShowHashtags] = useState(true);
+  const [showHashtags, setShowHashtags] = useState(false);
   const [captionFont, setCaptionFont] = useState<CaptionFont>('sans');
   
   const t = UI_TRANSLATIONS[uiLanguage] || UI_TRANSLATIONS['English'];
@@ -261,25 +259,6 @@ export default function App() {
   const [editedText, setEditedText] = useState('');
   const [usageStats, setUsageStats] = useState({ totalGenerated: 0, totalCopied: 0, totalSaved: 0 });
   const [history, setHistory] = useState<GeneratedCaptions[]>([]);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (isCameraActive && cameraStream && videoRef.current) {
-      videoRef.current.srcObject = cameraStream;
-      videoRef.current.play().catch(e => console.error("Video play error:", e));
-    }
-  }, [isCameraActive, cameraStream]);
-
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
 
   // Load history, stats, and drafts from localStorage
   useEffect(() => {
@@ -617,59 +596,6 @@ export default function App() {
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-  };
-
-  const startCamera = async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Camera not supported. Please ensure you are using a modern browser and a secure connection (HTTPS).");
-        return;
-      }
-      
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      } catch (e: any) {
-        // Fallback if facingMode is not supported
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      }
-      
-      setCameraStream(stream);
-      setIsCameraActive(true);
-      // videoRef is handled by useEffect
-    } catch (err: any) {
-      console.error("Error accessing camera:", err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message === 'Permission denied') {
-        toast.error("Camera access denied. Please click the lock icon in your browser's address bar to allow camera access.");
-      } else {
-        toast.error("Could not access camera: " + err.message);
-      }
-    }
-  };
-
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-    }
-    setIsCameraActive(false);
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setImages(prev => [...prev, { data: dataUrl, mimeType: 'image/jpeg' }]);
-        stopCamera();
-        toast.success("Photo captured!");
-      }
-    }
   };
 
   const handleSaveDraft = async () => {
@@ -1208,48 +1134,19 @@ export default function App() {
                   {t.uploadTitle}
                 </h2>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => isCameraActive ? stopCamera() : startCamera()}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                      isCameraActive 
-                        ? "bg-red-500/20 text-red-400 border border-red-500/30" 
-                        : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white"
-                    )}
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    {isCameraActive ? "Close Camera" : "Open Camera"}
-                  </button>
                 </div>
               </div>
             
             <div 
-              onClick={() => !isCameraActive && fileInputRef.current?.click()}
+              onClick={() => fileInputRef.current?.click()}
               onDrop={handleImageUpload}
               onDragOver={handleDragOver}
               className={cn(
                 "relative aspect-video rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center gap-3",
-                (images.length > 0 || isCameraActive) ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
+                (images.length > 0) ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
               )}
             >
-              {isCameraActive ? (
-                <div className="relative w-full h-full">
-                  <video 
-                    ref={videoRef} 
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); capturePhoto(); }}
-                      className={cn("w-14 h-14 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-110 active:scale-90", `bg-${colors.primary}`)}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-white/20 border border-white/40" />
-                    </button>
-                  </div>
-                </div>
-              ) : images.length > 0 ? (
+              {images.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2 w-full h-full p-2 overflow-y-auto">
                   {images.map((img, index) => (
                     <div key={index} className="relative aspect-square">
@@ -1289,7 +1186,6 @@ export default function App() {
                 accept="image/*,video/*"
                 multiple
               />
-              <canvas ref={canvasRef} className="hidden" />
             </div>
 
             <div className="mt-6">
@@ -1432,19 +1328,8 @@ export default function App() {
                 </button>
               </div>
 
-              <button 
-                onClick={() => setIsHashtagSettingsExpanded(!isHashtagSettingsExpanded)}
-                className="w-full flex items-center justify-between text-sm font-black text-gray-400 uppercase tracking-widest"
-              >
-                <div className="flex items-center gap-2">
-                  <Hash className={cn("w-4 h-4", `text-${colors.primary}`)} />
-                  Hashtag Settings
-                </div>
-                {isHashtagSettingsExpanded ? <ChevronDown className="w-4 h-4 rotate-180" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              
-              {isHashtagSettingsExpanded && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2">
+              {showHashtags && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2 pt-4">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Count</label>
                     <input 
@@ -1452,10 +1337,7 @@ export default function App() {
                       min="0" 
                       max="30" 
                       value={hashtagCount}
-                      onChange={(e) => {
-                        setHashtagCount(parseInt(e.target.value));
-                        setIsHashtagSettingsExpanded(false);
-                      }}
+                      onChange={(e) => setHashtagCount(parseInt(e.target.value))}
                       className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
@@ -1463,10 +1345,7 @@ export default function App() {
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Type</label>
                     <select 
                       value={hashtagType}
-                      onChange={(e) => {
-                        setHashtagType(e.target.value as any);
-                        setIsHashtagSettingsExpanded(false);
-                      }}
+                      onChange={(e) => setHashtagType(e.target.value as any)}
                       className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
                     >
                       <option value="popular">Popular</option>
@@ -1478,10 +1357,7 @@ export default function App() {
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Length</label>
                     <select 
                       value={hashtagLength}
-                      onChange={(e) => {
-                        setHashtagLength(e.target.value as any);
-                        setIsHashtagSettingsExpanded(false);
-                      }}
+                      onChange={(e) => setHashtagLength(e.target.value as any)}
                       className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-cyan-500"
                     >
                       <option value="short">Short</option>
@@ -1677,7 +1553,7 @@ export default function App() {
                       <div className="relative z-10">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-cyan-600" />
+                            <ImageIcon className="w-4 h-4 text-cyan-600" />
                             Image Analysis
                           </h3>
                           {!isGenerating && (
@@ -1867,14 +1743,19 @@ export default function App() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {result.hashtags.map(tag => (
-                            <motion.span 
+                            <motion.button 
                               initial={{ opacity: 0, scale: 0.8 }}
                               animate={{ opacity: 1, scale: 1 }}
                               key={tag} 
-                              className="text-sm font-bold text-cyan-600 hover:text-cyan-700 hover:underline cursor-pointer"
+                              onClick={() => {
+                                navigator.clipboard.writeText(tag);
+                                toast.success(`Copied ${tag}!`);
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-50 text-cyan-600 hover:bg-cyan-100 transition-all flex items-center gap-1.5 border border-cyan-100"
                             >
+                              <Hash className="w-3 h-3" />
                               {tag}
-                            </motion.span>
+                            </motion.button>
                           ))}
                         </div>
                       </div>

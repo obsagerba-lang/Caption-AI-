@@ -189,6 +189,13 @@ async function executeGeneration(
         - Each caption should be ~${request.linesPerCaption} lines.
         - Write in FIRST PERSON ("I", "my").
         
+        ✨ HASHTAG STRATEGY:
+        - Generate hashtags that are highly relevant to the photo, the caption's tone, and the user's feelings.
+        - Include a mix of broad (viral) and niche-specific hashtags to maximize reach and engagement.
+        - Ensure they add value by categorizing the content correctly for social media algorithms.
+        - They should reflect the mood (e.g., #joy, #reflection, #vibe) and the visual elements.
+        - Aim for VIRALITY: use trending, high-impact tags that help the post get discovered and reach a wider audience.
+        
         ✨ PERSONALIZATION & EMOTION:
         - Do NOT just describe the photo. Share the FEELING and VIBE.
         - If the photo shows laughter, make the caption burst with joy, humor, and the specific reason for the laugh.
