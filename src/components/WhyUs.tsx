@@ -2,28 +2,29 @@ import React from 'react';
 import { Zap, Sparkles, TrendingUp, Target, Camera } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { Feedback } from './Feedback';
 
-export const WhyUs = () => {
+export const WhyUs = ({ t }: { t: any }) => {
   const features = [
     {
       icon: <Target className="w-6 h-6 text-cyan-400" />,
-      title: "Platform-Specific Optimization",
-      description: "ChatGPT gives generic text. We optimize for TikTok, Instagram, and more, ensuring your captions fit the platform's unique culture."
+      title: t.whyUsFeature1Title,
+      description: t.whyUsFeature1Desc
     },
     {
       icon: <Zap className="w-6 h-6 text-violet-400" />,
-      title: "Built-in Creative Tools",
-      description: "No complex prompting needed. Use our tone selectors, hashtag generators, and style tools to get the perfect result in one click."
+      title: t.whyUsFeature2Title,
+      description: t.whyUsFeature2Desc
     },
     {
       icon: <TrendingUp className="w-6 h-6 text-pink-400" />,
-      title: "Daily Viral Trends",
-      description: "We don't just generate text; we keep you updated with daily trending captions and viral vibes tailored to your niche."
+      title: t.whyUsFeature3Title,
+      description: t.whyUsFeature3Desc
     },
     {
       icon: <Camera className="w-6 h-6 text-emerald-400" />,
-      title: "Visual-First Understanding",
-      description: "Our AI is trained to understand the mood and context of your images and videos, not just the text description."
+      title: t.whyUsFeature4Title,
+      description: t.whyUsFeature4Desc
     }
   ];
 
@@ -31,10 +32,10 @@ export const WhyUs = () => {
     <section className="py-16 px-6 bg-white/5 border-t border-white/10 mt-16">
       <div className="max-w-5xl mx-auto">
         <h2 className="text-3xl font-display font-black text-white text-center mb-12">
-          Why not just use ChatGPT?
+          {t.whyUsTitle}
         </h2>
         <p className="text-gray-400 text-center max-w-2xl mx-auto mb-16">
-          ChatGPT is a generalist. We are your <span className="text-cyan-400 font-bold">specialized social media creative studio</span>, built to save you time and maximize engagement.
+          {t.whyUsSubtitle}
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -52,6 +53,10 @@ export const WhyUs = () => {
               <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
+        </div>
+        
+        <div className="mt-16">
+          <Feedback />
         </div>
       </div>
     </section>

@@ -29,6 +29,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "obsagerba@gmail.com" && request.auth.token.email_verified == true);
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -47,6 +52,11 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated() && hasRequiredFields(['rating', 'comment', 'userId', 'createdAt']) && request.resource.data.userId == request.auth.uid && request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 5 && request.resource.data.comment is string && request.resource.data.comment.size() <= 1000;
+      allow read: if isAdmin();
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && hasRequiredFields(['uid', 'email']) && request.resource.data.uid == userId;
@@ -58,6 +68,18 @@ service cloud.firestore {
         allow create: if isOwner(userId) && hasRequiredFields(['id', 'text', 'language', 'userId']) && request.resource.data.userId == userId;
         allow update: if isOwner(userId) && request.resource.data.userId == userId;
         allow delete: if isOwner(userId);
+      }
+
+      match /drafts/{draftId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && hasRequiredFields(['id', 'userId', 'createdAt']) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /data/stats {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
       }
     }
   }

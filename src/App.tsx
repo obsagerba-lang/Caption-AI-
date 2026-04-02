@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { DailyEngagement } from './components/DailyEngagement';
 import { WhyUs } from './components/WhyUs';
 import { Paywall } from './components/Paywall';
+import { Feedback } from './components/Feedback';
+import { AdminDashboard } from './components/AdminDashboard';
 import { 
   Camera, 
   Upload, 
@@ -219,11 +221,10 @@ const LANGUAGE_MAP: Record<Language, string> = {
 };
 
 export default function App() {
-  const [image, setImage] = useState<string | null>(null);
-  const [mimeType, setMimeType] = useState<string | null>(null);
+  const [images, setImages] = useState<{data: string, mimeType: string}[]>([]);
   const [description, setDescription] = useState('');
   const [selectedTone, setSelectedTone] = useState<Tone>('aesthetic');
-  const [selectedLanguages, setSelectedLanguages] = useState<Language[]>(['English']);
+  const [selectedLanguages, setSelectedLanguages] = useState<Language[]>([]);
   const [uiLanguage, setUiLanguage] = useState<Language>('English');
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('Instagram');
   const [captionCount, setCaptionCount] = useState(5);
@@ -233,6 +234,7 @@ export default function App() {
   const [hashtagCount, setHashtagCount] = useState(10);
   const [hashtagType, setHashtagType] = useState<'popular' | 'niche' | 'branded'>('popular');
   const [hashtagLength, setHashtagLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [showHashtags, setShowHashtags] = useState(true);
   const [captionFont, setCaptionFont] = useState<CaptionFont>('sans');
   
   const t = UI_TRANSLATIONS[uiLanguage] || UI_TRANSLATIONS['English'];
@@ -360,11 +362,16 @@ export default function App() {
   };
 
   const handleShare = async (text: string) => {
+    let fullText = text;
+    if (showHashtags && result?.hashtags && result.hashtags.length > 0) {
+      fullText += '\n\n' + result.hashtags.join(' ');
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'CaptionAI',
-          text: text,
+          text: fullText,
           url: window.location.href,
         });
         toast.success("Shared successfully!");
@@ -375,7 +382,7 @@ export default function App() {
         }
       }
     } else {
-      copyToClipboard(text, 'share');
+      copyToClipboard(fullText, 'share');
     }
   };
 
@@ -397,18 +404,21 @@ export default function App() {
 
   const copyAllByLanguage = (lang: string) => {
     if (!result || !result.captions[lang]) return;
-    const allText = result.captions[lang].join('\n\n');
+    let allText = result.captions[lang].join('\n\n');
+    if (showHashtags && result?.hashtags && result.hashtags.length > 0) {
+      allText += '\n\n' + result.hashtags.join(' ');
+    }
     navigator.clipboard.writeText(allText);
     toast.success(`All ${lang} captions copied!`);
   };
 
   const getStyleColors = () => {
     switch (appStyle) {
-      case 'neon': return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]' };
-      case 'galaxy': return { primary: 'indigo-600', secondary: 'fuchsia-600', accent: 'indigo-400', bg: 'bg-gradient-to-br from-[#0B0E14] to-[#1E1B4B]' };
-      case 'pop': return { primary: 'pink-500', secondary: 'yellow-400', accent: 'pink-400', bg: 'bg-gradient-to-br from-[#1A1A1A] to-[#2D1B2E]' };
-      case 'glass': return { primary: 'blue-400', secondary: 'emerald-400', accent: 'blue-300', bg: 'bg-gradient-to-br from-[#121212] to-[#1B2631]' };
-      default: return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]' };
+      case 'neon': return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]', radius: 'rounded-3xl', shadow: 'shadow-[0_0_20px_rgba(6,182,212,0.2)]' };
+      case 'galaxy': return { primary: 'indigo-600', secondary: 'fuchsia-600', accent: 'indigo-400', bg: 'bg-gradient-to-br from-[#0B0E14] to-[#1E1B4B]', radius: 'rounded-full', shadow: 'shadow-xl' };
+      case 'pop': return { primary: 'pink-500', secondary: 'yellow-400', accent: 'pink-400', bg: 'bg-gradient-to-br from-[#1A1A1A] to-[#2D1B2E]', radius: 'rounded-none', shadow: 'shadow-none' };
+      case 'glass': return { primary: 'blue-400', secondary: 'emerald-400', accent: 'blue-300', bg: 'bg-gradient-to-br from-[#121212] to-[#1B2631]', radius: 'rounded-2xl', shadow: 'shadow-inner' };
+      default: return { primary: 'cyan-500', secondary: 'violet-500', accent: 'cyan-400', bg: 'bg-gradient-to-br from-[#0F1115] to-[#1A1A2E]', radius: 'rounded-3xl', shadow: 'shadow-lg' };
     }
   };
 
@@ -549,36 +559,59 @@ export default function App() {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    let file: File | undefined;
+    let files: FileList | null = null;
     
     if ('dataTransfer' in e) {
-      file = e.dataTransfer.files?.[0];
+      files = e.dataTransfer.files;
     } else {
-      file = e.target.files?.[0];
+      files = e.target.files;
     }
 
-    if (file) {
+    if (files) {
       const MAX_FREE_IMAGE = 5 * 1024 * 1024;
       const MAX_FREE_VIDEO = 10 * 1024 * 1024;
       const MAX_PREMIUM_IMAGE = 20 * 1024 * 1024;
       const MAX_PREMIUM_VIDEO = 100 * 1024 * 1024;
 
-      const isVideo = file.type.startsWith('video/');
-      const maxSize = isVideo 
-        ? (isPremium ? MAX_PREMIUM_VIDEO : MAX_FREE_VIDEO)
-        : (isPremium ? MAX_PREMIUM_IMAGE : MAX_FREE_IMAGE);
+      const limit = isPremium ? 20 : 5;
+      const remainingSlots = limit - images.length;
+      const filesToProcess = Array.from(files).slice(0, remainingSlots);
 
-      if (file.size > maxSize) {
-        setError(`File is too large! (Max ${isPremium ? (isVideo ? '100MB' : '20MB') : (isVideo ? '10MB' : '5MB')}). Upgrade to Premium for larger uploads.`);
-        toast.error("File too large! Upgrade to Premium for larger uploads.");
-        return;
+      if (files.length > remainingSlots) {
+        toast.info(`You can only upload up to ${limit} photos.`);
       }
-      setMimeType(file.type);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+
+      const readFiles = filesToProcess.map(file => {
+        return new Promise<{data: string, mimeType: string}>((resolve, reject) => {
+          const isVideo = file.type.startsWith('video/');
+          const maxSize = isVideo 
+            ? (isPremium ? MAX_PREMIUM_VIDEO : MAX_FREE_VIDEO)
+            : (isPremium ? MAX_PREMIUM_IMAGE : MAX_FREE_IMAGE);
+
+          if (file.size > maxSize) {
+            toast.error(`File ${file.name} is too large!`);
+            reject(new Error('File too large'));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({ data: reader.result as string, mimeType: file.type });
+          };
+          reader.onerror = () => reject(new Error('Read failed'));
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.allSettled(readFiles).then(results => {
+        const successfulImages = results
+          .filter((r): r is PromiseFulfilledResult<{data: string, mimeType: string}> => r.status === 'fulfilled')
+          .map(r => r.value);
+        
+        if (successfulImages.length > 0) {
+          setImages(prev => [...prev, ...successfulImages]);
+        }
+      });
     }
   };
 
@@ -632,8 +665,7 @@ export default function App() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg');
-        setImage(dataUrl);
-        setMimeType('image/jpeg');
+        setImages(prev => [...prev, { data: dataUrl, mimeType: 'image/jpeg' }]);
         stopCamera();
         toast.success("Photo captured!");
       }
@@ -641,15 +673,14 @@ export default function App() {
   };
 
   const handleSaveDraft = async () => {
-    if (!image && !description) {
-      toast.error("Nothing to save! Add an image or description first.");
+    if (images.length === 0 && !description) {
+      toast.error("Nothing to save! Add images or description first.");
       return;
     }
 
     const newDraft: Draft = {
       id: `draft_${Date.now()}`,
-      image: image || undefined,
-      mimeType: mimeType || undefined,
+      images: images,
       description,
       tone: selectedTone,
       languages: selectedLanguages,
@@ -677,8 +708,7 @@ export default function App() {
   };
 
   const loadDraft = (draft: Draft) => {
-    setImage(draft.image || null);
-    setMimeType(draft.mimeType || null);
+    setImages(draft.images || []);
     setDescription(draft.description);
     setSelectedTone(draft.tone);
     setSelectedLanguages(draft.languages);
@@ -713,9 +743,15 @@ export default function App() {
 
 
   const handleGenerate = async () => {
-    if (!image && !description) {
-      setError('Please provide an image, video, or a description.');
-      toast.error("Input required: Please upload an image or write a description.");
+    if (images.length === 0 && !description) {
+      setError('Please provide images or a description.');
+      toast.error("Input required: Please upload images or write a description.");
+      return;
+    }
+
+    if (!user) {
+      toast.info("Please sign in to generate captions");
+      await handleSignIn();
       return;
     }
 
@@ -730,6 +766,12 @@ export default function App() {
       setCaptionCount(5);
     }
 
+    if (selectedLanguages.length === 0) {
+      setError('Please choose one or more languages.');
+      toast.error("Language required: Please choose one or more languages.");
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
     setResult(null);
@@ -737,8 +779,7 @@ export default function App() {
     
     try {
       const request: CaptionRequest = {
-        image: image || undefined,
-        mimeType: mimeType || undefined,
+        images: images,
         description,
         tone: selectedTone,
         languages: selectedLanguages,
@@ -763,7 +804,7 @@ export default function App() {
             }
           } as GeneratedCaptions;
         });
-      }, true);
+      }, false);
       
       setResult(data);
       setHistory(prev => [data, ...prev]);
@@ -791,7 +832,12 @@ export default function App() {
   };
 
   const handleGenerateMore = async () => {
-    if (!image && !description) return;
+    if (images.length === 0 && !description) return;
+    
+    if (selectedLanguages.length === 0) {
+      toast.error("Please choose one or more languages.");
+      return;
+    }
 
     if (!isPremium) {
       toast.info("Multi-language generation is a Premium feature!");
@@ -804,8 +850,7 @@ export default function App() {
     
     try {
       const request: CaptionRequest = {
-        image: image || undefined,
-        mimeType: mimeType || undefined,
+        images: images,
         description,
         tone: selectedTone,
         languages: selectedLanguages,
@@ -830,7 +875,7 @@ export default function App() {
             }
           } as GeneratedCaptions;
         });
-      }, true);
+      }, false);
       
       setResult(prev => {
         if (!prev) return data;
@@ -880,7 +925,11 @@ export default function App() {
   };
 
   const copyStylized = (text: string, font: CaptionFont, id: string) => {
-    const stylized = stylizeText(text, font);
+    let fullText = text;
+    if (showHashtags && result?.hashtags && result.hashtags.length > 0) {
+      fullText += '\n\n' + result.hashtags.join(' ');
+    }
+    const stylized = stylizeText(fullText, font);
     copyToClipboard(stylized, id);
     toast.success(`Copied in ${font} style!`);
   };
@@ -897,7 +946,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className={cn("min-h-screen pb-20 transition-colors duration-500 relative overflow-hidden", colors.bg, "text-white")}>
+      <div className={cn("min-h-screen pb-20 transition-all duration-500 relative overflow-hidden", colors.bg, colors.radius, colors.shadow, "text-white")}>
       {/* Background Glows */}
       <div className={cn("absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none opacity-20", `bg-${colors.primary}`)} />
       <div className={cn("absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none opacity-20", `bg-${colors.secondary}`)} />
@@ -1048,7 +1097,12 @@ export default function App() {
       </header>
       
       <div className="max-w-5xl mx-auto">
-        <DailyEngagement />
+        <DailyEngagement t={t} />
+        {user?.email === 'obsagerba@gmail.com' && (
+          <div className="mt-8 p-4">
+            <AdminDashboard />
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -1175,7 +1229,7 @@ export default function App() {
               onDragOver={handleDragOver}
               className={cn(
                 "relative aspect-video rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center gap-3",
-                (image || isCameraActive) ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
+                (images.length > 0 || isCameraActive) ? "border-transparent" : cn("border-white/10 hover:bg-white/5", `hover:border-${colors.accent}`)
               )}
             >
               {isCameraActive ? (
@@ -1195,20 +1249,24 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              ) : image ? (
-                <>
-                  {mimeType?.startsWith('video/') ? (
-                    <video src={image} controls autoPlay muted loop playsInline className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={image} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  )}
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setImage(null); setMimeType(null); }}
-                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black text-white rounded-full backdrop-blur-sm transition-colors z-10"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </>
+              ) : images.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2 w-full h-full p-2 overflow-y-auto">
+                  {images.map((img, index) => (
+                    <div key={index} className="relative aspect-square">
+                      {img.mimeType.startsWith('video/') ? (
+                        <video src={img.data} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <img src={img.data} alt={`Preview ${index}`} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
+                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setImages(prev => prev.filter((_, i) => i !== index)); }}
+                        className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-black text-white rounded-full backdrop-blur-sm transition-colors z-10"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <>
                   <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center">
@@ -1229,6 +1287,7 @@ export default function App() {
                 onChange={handleImageUpload} 
                 className="hidden" 
                 accept="image/*,video/*"
+                multiple
               />
               <canvas ref={canvasRef} className="hidden" />
             </div>
@@ -1354,6 +1413,25 @@ export default function App() {
 
             {/* Hashtag Customization */}
             <div className="space-y-6 pt-6 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hash className={cn("w-4 h-4", `text-${colors.primary}`)} />
+                  <span className="text-sm font-black text-gray-400 uppercase tracking-widest">Include Hashtags</span>
+                </div>
+                <button 
+                  onClick={() => setShowHashtags(!showHashtags)}
+                  className={cn(
+                    "w-12 h-6 rounded-full relative transition-all duration-300",
+                    showHashtags ? `bg-${colors.primary}` : "bg-gray-700"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300",
+                    showHashtags ? "right-1" : "left-1"
+                  )} />
+                </button>
+              </div>
+
               <button 
                 onClick={() => setIsHashtagSettingsExpanded(!isHashtagSettingsExpanded)}
                 className="w-full flex items-center justify-between text-sm font-black text-gray-400 uppercase tracking-widest"
@@ -1464,7 +1542,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || (!image && !description)}
+                disabled={isGenerating || (images.length === 0 && !description)}
                 className={cn("flex-[2] text-white py-4 rounded-2xl font-display font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl bg-gradient-to-r", `from-${colors.primary} to-${colors.secondary} hover:from-${colors.accent} hover:to-${colors.primary} shadow-${colors.secondary}/25`)}
               >
                 {isGenerating ? (
@@ -1688,7 +1766,14 @@ export default function App() {
                                       <p className={cn(
                                         "text-black font-medium text-lg pr-16 leading-relaxed mb-4",
                                         FONT_STYLES.find(f => f.id === captionFont)?.class
-                                      )}>{captionText}</p>
+                                      )}>
+                                        {captionText}
+                                        {showHashtags && result?.hashtags && result.hashtags.length > 0 && (
+                                          <span className="block mt-4 text-cyan-600 font-bold text-sm">
+                                            {result.hashtags.join(' ')}
+                                          </span>
+                                        )}
+                                      </p>
                                       
                                       <div className="flex flex-col gap-4">
                                         {/* Prominent Style Selector */}
@@ -1969,9 +2054,9 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {drafts.map((draft) => (
                         <div key={draft.id} className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all border border-transparent hover:border-cyan-500/20 group">
-                          {draft.image ? (
+                          {draft.images && draft.images.length > 0 ? (
                             <div className="aspect-video relative overflow-hidden bg-gray-100">
-                              <img src={draft.image} alt="Draft" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              <img src={draft.images[0].data} alt="Draft" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                 <button 
                                   onClick={() => loadDraft(draft)}
@@ -2202,7 +2287,7 @@ export default function App() {
       </div>
     </main>
 
-      <WhyUs />
+      <WhyUs t={t} />
 
       {/* Footer */}
       <footer className="max-w-5xl mx-auto px-6 mt-12 pt-8 border-t border-white/10 text-center text-gray-400 text-sm">

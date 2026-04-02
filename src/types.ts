@@ -42,8 +42,7 @@ export type Platform =
   | 'Twitter/X';
 
 export interface CaptionRequest {
-  image?: string; // base64
-  mimeType?: string; // e.g. 'image/jpeg', 'video/mp4'
+  images?: { data: string; mimeType: string }[];
   description?: string;
   tone: Tone;
   languages: Language[];
@@ -85,8 +84,7 @@ export interface GeneratedCaptions {
 
 export interface Draft {
   id: string;
-  image?: string;
-  mimeType?: string;
+  images?: { data: string; mimeType: string }[];
   description: string;
   tone: Tone;
   languages: Language[];

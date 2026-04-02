@@ -7,7 +7,18 @@ const LANGUAGES: Language[] = ['English', 'French', 'Spanish', 'Portuguese', 'Sw
 
 /**
  * Generates social media captions using Magic AI.
- * Optimizes performance for multiple languages by parallelizing requests.
+ * 
+ * SCALABILITY & PERFORMANCE:
+ * - Direct Client-to-API: This app calls Gemini directly from the browser. This means the load is 
+ *   distributed across all users' devices, making it highly scalable as there's no central 
+ *   backend bottleneck for AI processing.
+ * - Parallel Processing: For multiple languages, we parallelize requests to significantly 
+ *   reduce total generation time.
+ * - Streaming: We use generateContentStream for real-time UI updates.
+ * 
+ * RELIABILITY & ERROR HANDLING:
+ * - withRetry: Implements exponential backoff to handle transient API errors (503) 
+ *   and rate limits (429) gracefully.
  */
 export async function generateCaptions(
   request: CaptionRequest, 
@@ -19,7 +30,11 @@ export async function generateCaptions(
   // Determine which languages to generate
   const allLangs = generateAllLanguages 
     ? LANGUAGES 
-    : (request.languages.length > 0 ? request.languages : ['English'] as Language[]);
+    : request.languages;
+  
+  if (allLangs.length === 0) {
+    throw new Error("Please choose one or more languages.");
+  }
   
   // State for merging results from parallel requests
   let mergedResult: GeneratedCaptions = { 
@@ -202,20 +217,22 @@ async function executeGeneration(
 
     const contents: any[] = [];
     // Only send image data if we are in INITIAL GENERATION MODE (no referenceResult)
-    if (request.image && !referenceResult) {
-      let mimeType = request.mimeType || "image/jpeg";
-      // Basic video mimeType normalization
-      if (mimeType.startsWith('video/')) {
-        const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/mov', 'video/webm', 'video/mpg', 'video/avi', 'video/wmv', 'video/mpegps', 'video/flv', 'video/3gpp'];
-        if (!validVideoTypes.includes(mimeType)) mimeType = 'video/mp4';
-      }
-      
-      contents.push({
-        inlineData: {
-          mimeType: mimeType,
-          data: request.image.split(",")[1]
+    if (request.images && request.images.length > 0 && !referenceResult) {
+      for (const img of request.images) {
+        let mimeType = img.mimeType || "image/jpeg";
+        // Basic video mimeType normalization
+        if (mimeType.startsWith('video/')) {
+          const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/mov', 'video/webm', 'video/mpg', 'video/avi', 'video/wmv', 'video/mpegps', 'video/flv', 'video/3gpp'];
+          if (!validVideoTypes.includes(mimeType)) mimeType = 'video/mp4';
         }
-      });
+        
+        contents.push({
+          inlineData: {
+            mimeType: mimeType,
+            data: img.data.split(",")[1]
+          }
+        });
+      }
     }
     contents.push({ text: prompt });
 

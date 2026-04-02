@@ -32,6 +32,14 @@
     "/users/{userId}/favorites/{captionId}": {
       "schema": { "$ref": "FavoriteCaption" },
       "description": "User's favorite captions"
+    },
+    "/users/{userId}/drafts/{draftId}": {
+      "schema": { "type": "object", "description": "A saved draft" },
+      "description": "User's saved drafts"
+    },
+    "/users/{userId}/data/stats": {
+      "schema": { "type": "object", "description": "User's usage statistics" },
+      "description": "User's usage statistics"
     }
   }
 }
