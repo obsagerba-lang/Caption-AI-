@@ -92,6 +92,31 @@ export async function generateCaptions(
   }
 }
 
+async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3, baseDelay = 1500): Promise<T> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      attempt++;
+      const errorMessage = error.message || String(error);
+      const isRetryable = errorMessage.includes('503') || 
+                          errorMessage.includes('429') || 
+                          errorMessage.includes('overloaded') ||
+                          errorMessage.includes('fetch failed');
+      
+      if (isRetryable && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.warn(`API error (${errorMessage}). Retrying in ${delay}ms... (Attempt ${attempt} of ${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error("Max retries reached");
+}
+
 /**
  * Internal helper to execute a single generation/translation request
  */
@@ -102,129 +127,131 @@ async function executeGeneration(
   onUpdate: (partial: Partial<GeneratedCaptions>) => void,
   referenceResult?: GeneratedCaptions
 ): Promise<GeneratedCaptions> {
-  const languagesStr = languages.join(", ");
-  
-  let prompt = "";
-  if (referenceResult) {
-    // TRANSLATION MODE: Fast path
-    // We provide the already generated captions to ensure consistency and speed up the process
-    const refCaptions = Object.values(referenceResult.captions || {})[0] || [];
-    const refTexts = refCaptions.map((c: any) => typeof c === 'string' ? c : c.text).join("\n---\n");
+  return withRetry(async () => {
+    const languagesStr = languages.join(", ");
     
-    prompt = `
-      You are a translation assistant for a social media caption app.
+    let prompt = "";
+    if (referenceResult) {
+      // TRANSLATION MODE: Fast path
+      // We provide the already generated captions to ensure consistency and speed up the process
+      const refCaptions = Object.values(referenceResult.captions || {})[0] || [];
+      const refTexts = refCaptions.map((c: any) => typeof c === 'string' ? c : c.text).join("\n---\n");
       
-      TASK:
-      Translate the following ${refCaptions.length} captions into these languages: ${languagesStr}.
-      Maintain the EXACT same tone (${request.tone}) and emoji style.
-      Assume the user is the subject (first person).
-      
-      CAPTIONS TO TRANSLATE:
-      ${refTexts}
-      
-      OUTPUT FORMAT:
-      Return ONLY this JSON structure:
-      {
-        "captions": {
-          "${languages[0]}": [
-            { "text": "Translated Caption 1" }
-          ]
+      prompt = `
+        You are a translation assistant for a social media caption app.
+        
+        TASK:
+        Translate the following ${refCaptions.length} captions into these languages: ${languagesStr}.
+        Maintain the EXACT same tone (${request.tone}) and emoji style.
+        Assume the user is the subject (first person).
+        
+        CAPTIONS TO TRANSLATE:
+        ${refTexts}
+        
+        OUTPUT FORMAT:
+        Return ONLY this JSON structure:
+        {
+          "captions": {
+            "${languages[0]}": [
+              { "text": "Translated Caption 1" }
+            ]
+          }
         }
-      }
-      (Include all requested languages in the "captions" object)
-    `;
-  } else {
-    // INITIAL GENERATION MODE: Full analysis
-    prompt = `
-      You are an AI Caption Generator backend.
-      🎯 RULES
-      - Generate captions ONLY in: ${languagesStr}
-      - Generate EXACTLY ${request.count} captions for ${request.platform}.
-      - Tone: ${request.tone}
-      - Emoji Intensity: ${request.emojiIntensity === 0 ? 'None' : request.emojiIntensity === 1 ? 'Low' : request.emojiIntensity === 2 ? 'Medium' : 'Abundant'}
-      - Hashtag Count: ${request.hashtagCount}
-      - Hashtag Type: ${request.hashtagType}
-      - Hashtag Length: ${request.hashtagLength}
-      - Each caption should be ~${request.linesPerCaption} lines.
-      - Write in FIRST PERSON ("I", "my").
-      
-      ✨ PERSONALIZATION & EMOTION:
-      - Do NOT just describe the photo. Share the FEELING and VIBE.
-      - If the photo shows laughter, make the caption burst with joy, humor, and the specific reason for the laugh.
-      - If the photo is sad or reflective, use deep, emotional, and poetic language that shares the weight of the moment.
-      - Connect with the audience by sharing the "why" behind the moment.
-      - Make it sound like a real person sharing a real memory, not an AI list.
-      - Use sensory language (what it felt like, the atmosphere, the unspoken words).
-      - Avoid generic "order style" or "fact-based" captions.
-      
-      OUTPUT FORMAT:
-      Return ONLY this JSON structure:
-      {
-        "captions": {
-          "${languages[0]}": [
-            { "text": "Caption 1" }
-          ]
-        },
-        "image_understanding": {
-          "description": "Summary of media",
-          "mood": "Detailed emotional mood (e.g., 'Radiant Joy', 'Quiet Melancholy', 'Fierce Confidence')"
-        },
-        "hashtags": ["tag1", "tag2"]
-      }
-    `;
-  }
+        (Include all requested languages in the "captions" object)
+      `;
+    } else {
+      // INITIAL GENERATION MODE: Full analysis
+      prompt = `
+        You are an AI Caption Generator backend.
+        🎯 RULES
+        - Generate captions ONLY in: ${languagesStr}
+        - Generate EXACTLY ${request.count} captions for ${request.platform}.
+        - Tone: ${request.tone}
+        - Emoji Intensity: ${request.emojiIntensity === 0 ? 'None' : request.emojiIntensity === 1 ? 'Low' : request.emojiIntensity === 2 ? 'Medium' : 'Abundant'}
+        - Hashtag Count: ${request.hashtagCount}
+        - Hashtag Type: ${request.hashtagType}
+        - Hashtag Length: ${request.hashtagLength}
+        - Each caption should be ~${request.linesPerCaption} lines.
+        - Write in FIRST PERSON ("I", "my").
+        
+        ✨ PERSONALIZATION & EMOTION:
+        - Do NOT just describe the photo. Share the FEELING and VIBE.
+        - If the photo shows laughter, make the caption burst with joy, humor, and the specific reason for the laugh.
+        - If the photo is sad or reflective, use deep, emotional, and poetic language that shares the weight of the moment.
+        - Connect with the audience by sharing the "why" behind the moment.
+        - Make it sound like a real person sharing a real memory, not an AI list.
+        - Use sensory language (what it felt like, the atmosphere, the unspoken words).
+        - Avoid generic "order style" or "fact-based" captions.
+        
+        OUTPUT FORMAT:
+        Return ONLY this JSON structure:
+        {
+          "captions": {
+            "${languages[0]}": [
+              { "text": "Caption 1" }
+            ]
+          },
+          "image_understanding": {
+            "description": "Summary of media",
+            "mood": "Detailed emotional mood (e.g., 'Radiant Joy', 'Quiet Melancholy', 'Fierce Confidence')"
+          },
+          "hashtags": ["tag1", "tag2"]
+        }
+      `;
+    }
 
-  const contents: any[] = [];
-  // Only send image data if we are in INITIAL GENERATION MODE (no referenceResult)
-  if (request.image && !referenceResult) {
-    let mimeType = request.mimeType || "image/jpeg";
-    // Basic video mimeType normalization
-    if (mimeType.startsWith('video/')) {
-      const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/mov', 'video/webm', 'video/mpg', 'video/avi', 'video/wmv', 'video/mpegps', 'video/flv', 'video/3gpp'];
-      if (!validVideoTypes.includes(mimeType)) mimeType = 'video/mp4';
+    const contents: any[] = [];
+    // Only send image data if we are in INITIAL GENERATION MODE (no referenceResult)
+    if (request.image && !referenceResult) {
+      let mimeType = request.mimeType || "image/jpeg";
+      // Basic video mimeType normalization
+      if (mimeType.startsWith('video/')) {
+        const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/mov', 'video/webm', 'video/mpg', 'video/avi', 'video/wmv', 'video/mpegps', 'video/flv', 'video/3gpp'];
+        if (!validVideoTypes.includes(mimeType)) mimeType = 'video/mp4';
+      }
+      
+      contents.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: request.image.split(",")[1]
+        }
+      });
+    }
+    contents.push({ text: prompt });
+
+    const responseStream = await ai.models.generateContentStream({
+      model: MODEL_NAME,
+      contents: { parts: contents },
+      config: { responseMimeType: "application/json" }
+    });
+
+    let fullText = "";
+    for await (const chunk of responseStream) {
+      if (chunk.text) {
+        fullText += chunk.text;
+        try {
+          const cleanText = fullText.replace(/```json/g, "").replace(/```/g, "").trim();
+          const repaired = jsonrepair(cleanText);
+          const parsed = JSON.parse(repaired) as Partial<GeneratedCaptions>;
+          onUpdate(parsed);
+        } catch (e) { /* Ignore partial parse errors */ }
+      }
+    }
+
+    const finalClean = fullText.replace(/```json/g, "").replace(/```/g, "").trim();
+    if (!finalClean) throw new Error("Empty AI response");
+    
+    const finalRepaired = jsonrepair(finalClean);
+    const result = JSON.parse(finalRepaired) as GeneratedCaptions;
+    
+    // Normalize if AI returned array instead of object
+    if (result.captions && Array.isArray(result.captions)) {
+      const lang = languages[0];
+      result.captions = { [lang]: result.captions } as any;
     }
     
-    contents.push({
-      inlineData: {
-        mimeType: mimeType,
-        data: request.image.split(",")[1]
-      }
-    });
-  }
-  contents.push({ text: prompt });
-
-  const responseStream = await ai.models.generateContentStream({
-    model: MODEL_NAME,
-    contents: { parts: contents },
-    config: { responseMimeType: "application/json" }
+    return result;
   });
-
-  let fullText = "";
-  for await (const chunk of responseStream) {
-    if (chunk.text) {
-      fullText += chunk.text;
-      try {
-        const cleanText = fullText.replace(/```json/g, "").replace(/```/g, "").trim();
-        const repaired = jsonrepair(cleanText);
-        const parsed = JSON.parse(repaired) as Partial<GeneratedCaptions>;
-        onUpdate(parsed);
-      } catch (e) { /* Ignore partial parse errors */ }
-    }
-  }
-
-  const finalClean = fullText.replace(/```json/g, "").replace(/```/g, "").trim();
-  if (!finalClean) throw new Error("Empty AI response");
-  
-  const finalRepaired = jsonrepair(finalClean);
-  const result = JSON.parse(finalRepaired) as GeneratedCaptions;
-  
-  // Normalize if AI returned array instead of object
-  if (result.captions && Array.isArray(result.captions)) {
-    const lang = languages[0];
-    result.captions = { [lang]: result.captions } as any;
-  }
-  
-  return result;
 }
 
 /**
@@ -233,28 +260,30 @@ async function executeGeneration(
 export async function detectLanguage(text: string): Promise<Language | null> {
   if (!text || text.trim().length < 3) return null;
   
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const prompt = `
-    Analyze the following text and detect its language. 
-    Return ONLY the language name from this list: ${LANGUAGES.join(", ")}.
-    If the language is not in the list, return "null".
-    
-    Text: "${text}"
-  `;
+  return withRetry(async () => {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const prompt = `
+      Analyze the following text and detect its language. 
+      Return ONLY the language name from this list: ${LANGUAGES.join(", ")}.
+      If the language is not in the list, return "null".
+      
+      Text: "${text}"
+    `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt,
+      });
 
-    const detected = response.text?.trim();
-    if (detected && detected !== "null" && LANGUAGES.includes(detected as Language)) {
-      return detected as Language;
+      const detected = response.text?.trim();
+      if (detected && detected !== "null" && LANGUAGES.includes(detected as Language)) {
+        return detected as Language;
+      }
+      return null;
+    } catch (e) {
+      console.error("Language detection failed", e);
+      throw e; // Let withRetry handle it
     }
-    return null;
-  } catch (e) {
-    console.error("Language detection failed", e);
-    return null;
-  }
+  }).catch(() => null); // If all retries fail, just return null
 }

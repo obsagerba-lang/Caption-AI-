@@ -15,7 +15,6 @@ import {
   Heart,
   Zap,
   Trash2,
-  Mic,
   Share2,
   Type,
   LogOut,
@@ -237,8 +236,6 @@ export default function App() {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const [result, setResult] = useState<GeneratedCaptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -262,6 +259,7 @@ export default function App() {
   useEffect(() => {
     if (isCameraActive && cameraStream && videoRef.current) {
       videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(e => console.error("Video play error:", e));
     }
   }, [isCameraActive, cameraStream]);
 
@@ -556,16 +554,26 @@ export default function App() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Camera not supported. Please ensure you are using a modern browser and a secure connection (HTTPS).");
+        return;
+      }
+      
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      } catch (e: any) {
+        // Fallback if facingMode is not supported
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      
       setCameraStream(stream);
       setIsCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      // videoRef is handled by useEffect
     } catch (err: any) {
       console.error("Error accessing camera:", err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        toast.error("Camera access denied. Please allow camera permissions in your browser settings.");
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message === 'Permission denied') {
+        toast.error("Camera access denied. Please click the lock icon in your browser's address bar to allow camera access.");
       } else {
         toast.error("Could not access camera: " + err.message);
       }
@@ -669,38 +677,6 @@ export default function App() {
   };
 
 
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      setIsRecording(false);
-    } else {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast.error("Your browser does not support voice input.");
-        return;
-      }
-      const recognition = new SpeechRecognition();
-      recognition.lang = LANGUAGE_MAP[uiLanguage] || 'en-US';
-      recognitionRef.current = recognition;
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setDescription(prev => prev + ' ' + transcript);
-      };
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error === 'not-allowed') {
-          toast.error("Microphone access denied. Please allow microphone permissions in your browser settings.");
-        } else {
-          toast.error("Voice input error: " + event.error);
-        }
-        setIsRecording(false);
-      };
-      recognition.onend = () => setIsRecording(false);
-      recognition.start();
-      setIsRecording(true);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!image && !description) {
@@ -1194,24 +1170,15 @@ export default function App() {
 
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                {t.describePlaceholder}
+                {t.descriptionLabel || "Context & Feelings (Optional)"}
               </label>
               <div className="relative">
                 <textarea 
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t.describePlaceholder}
+                  placeholder={t.descriptionPlaceholder || "Describe the vibe, feeling, or context (Optional)..."}
                   className={cn("w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:ring-2 focus:border-transparent transition-all resize-none h-24", `focus:ring-${colors.primary}`)}
                 />
-                <button
-                  onClick={toggleRecording}
-                  className={cn(
-                    "absolute bottom-3 right-3 p-2 rounded-full transition-colors",
-                    isRecording ? "bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]" : "bg-white/10 text-gray-300 hover:bg-white/20"
-                  )}
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
               </div>
             </div>
           </section>
