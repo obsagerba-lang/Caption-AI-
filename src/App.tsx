@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { DailyEngagement } from './components/DailyEngagement';
+import { WhyUs } from './components/WhyUs';
+import { Paywall } from './components/Paywall';
 import { 
   Camera, 
   Upload, 
@@ -247,6 +250,8 @@ export default function App() {
   const [dailyCaptionsGenerated, setDailyCaptionsGenerated] = useState(0);
   const [captionsSinceLastAd, setCaptionsSinceLastAd] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState('');
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -1030,6 +1035,10 @@ export default function App() {
         </div>
       </header>
       
+      <div className="max-w-5xl mx-auto">
+        <DailyEngagement />
+      </div>
+
       <AnimatePresence>
         {showMobileMenu && (
           <>
@@ -2180,6 +2189,8 @@ export default function App() {
         </div>
       </div>
     </main>
+
+      <WhyUs />
 
       {/* Footer */}
       <footer className="max-w-5xl mx-auto px-6 mt-12 pt-8 border-t border-white/10 text-center text-gray-400 text-sm">
