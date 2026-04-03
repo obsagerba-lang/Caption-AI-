@@ -675,12 +675,6 @@ export default function App() {
       return;
     }
 
-    if (!user) {
-      toast.info("Please sign in to generate captions");
-      await handleSignIn();
-      return;
-    }
-
     if (!isPremium && dailyCaptionsGenerated >= 5) {
       setPaywallReason("You reached today’s limit 😅 Watch ad or upgrade to continue");
       setShowPaywall(true);
