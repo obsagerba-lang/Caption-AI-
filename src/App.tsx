@@ -4,6 +4,7 @@ import { WhyUs } from './components/WhyUs';
 import { Paywall } from './components/Paywall';
 import { Feedback } from './components/Feedback';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ChatInterface } from './components/ChatInterface';
 import { 
   Upload, 
   Image as ImageIcon, 
@@ -32,7 +33,8 @@ import {
   AlertCircle,
   Save,
   Globe,
-  Menu
+  Menu,
+  MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -251,6 +253,7 @@ export default function App() {
   const [captionsSinceLastAd, setCaptionsSinceLastAd] = useState(0);
   const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [paywallReason, setPaywallReason] = useState('');
   const [appStyle, setAppStyle] = useState<AppStyle>('neon');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -2175,6 +2178,17 @@ export default function App() {
     </main>
 
       <WhyUs t={t} />
+
+      <AnimatePresence>
+        {showChat && <ChatInterface onClose={() => setShowChat(false)} />}
+      </AnimatePresence>
+      
+      <button
+        onClick={() => setShowChat(true)}
+        className="fixed bottom-6 right-6 p-4 bg-cyan-500 text-white rounded-full shadow-lg hover:bg-cyan-600 transition-all z-40"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
 
       {/* Footer */}
       <footer className="max-w-5xl mx-auto px-6 mt-12 pt-8 border-t border-white/10 text-center text-gray-400 text-sm">
